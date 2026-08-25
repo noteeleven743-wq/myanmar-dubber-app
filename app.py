@@ -45,8 +45,8 @@ if uploaded_file is not None:
                 # ၃။ မြန်မာလို ဘာသာပြန်ခြင်း (Gemini AI)
                 st.text("၃။ မြန်မာဘာသာသို့ ပြန်ဆိုနေပါသည် (Gemini AI ဖြင့်)...")
                 
-                # Gemini ကို ဘာသာပြန်ခိုင်းခြင်း (gemini-pro သို့ ပြောင်းထားသည်)
-                gemini_model = genai.GenerativeModel('gemini-pro')
+                # Gemini ကို ဘာသာပြန်ခိုင်းခြင်း (ယခုနောက်ဆုံးပေါ် gemini-2.5-flash သို့ ပြောင်းထားသည်)
+                gemini_model = genai.GenerativeModel('gemini-2.5-flash')
                 prompt = f"Translate the following Chinese text to Myanmar (Burmese) language naturally. Do not output any other text, just the direct translation:\n\n{original_text}"
                 response = gemini_model.generate_content(prompt)
                 myanmar_text = response.text.strip()
