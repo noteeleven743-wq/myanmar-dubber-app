@@ -72,7 +72,9 @@ if uploaded_file is not None:
                 st.warning("ဗီဒီယိုထဲမှ စကားပြောသံကို မဖမ်းမိပါ။")
             else:
                 st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
-                gemini_model = genai.GenerativeModel('gemini-3.6-flash')
+                
+                # အရေးကြီးဆုံး ပြင်ဆင်ချက် - Model နာမည်အမှန် ပြောင်းထားပါသည် (တစ်နေ့ အကြိမ် ၁၅၀၀ ရပါမည်)
+                gemini_model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 final_clips = []
                 last_end = 0
@@ -131,7 +133,6 @@ if uploaded_file is not None:
                             else:
                                 final_clips.append(speech_clip)
                                 
-                            # API Limit အတွက် (၅) စက္ကန့် အနားပေးခြင်း
                             time.sleep(5) 
                             
                         else:
@@ -140,7 +141,6 @@ if uploaded_file is not None:
                     except Exception as e:
                         st.warning(f"အပိုင်းအမှတ် {i+1} တွင် အခက်အခဲရှိနေပါသည်: {e}") 
                         final_clips.append(speech_clip)
-                        # API Limit အတွက် (၅) စက္ကန့် အနားပေးခြင်း
                         time.sleep(5)
                     
                     last_end = safe_end
