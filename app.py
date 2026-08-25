@@ -8,8 +8,8 @@ import os
 import tempfile
 import time
 
-st.title("🎬 AI Video Dubbing (Pro Version - Custom Voice)")
-st.write("AI အသံကို ၃၀% ပိုမြန်စေပြီး ရုပ်နှင့်အသံ အလိုအလျောက် ချိန်ညှိပေးသည့်စနစ်")
+st.title("🎬 AI Video Dubbing (Pro Version - Gemini 3.1)")
+st.write("Gemini 3.1 Flash ဖြင့် အသံကို ၃၀% ပိုမြန်စေပြီး ရုပ်နှင့်အသံ အလိုအလျောက် ချိန်ညှိပေးသည့်စနစ်")
 
 def clean_and_format_for_tts(text):
     chars_to_remove = ['.', ',', '"', "'", '?', '!', ':', ';', '(', ')', '[', ']', '{', '}', '-', '_', '...']
@@ -73,8 +73,8 @@ if uploaded_file is not None:
             else:
                 st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
-                # အသေချာဆုံးဖြစ်စေရန် latest tag ဖြင့် ပြင်ဆင်ထားပါသည်
-                gemini_model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                # အသစ်စက်စက် Gemini 3.1 Flash-Lite မော်דယ်ကို အသုံးပြုထားပါသည်
+                gemini_model = genai.GenerativeModel('gemini-3.1-flash-lite')
                 
                 final_clips = []
                 last_end = 0
