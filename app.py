@@ -1,16 +1,14 @@
 import streamlit as st
 import whisper
-import google.generativeai as genai
+from deep_translator import GoogleTranslator
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 import moviepy.video.fx.all as vfx
 import os
 import tempfile
-import time
 import subprocess
-import re
 
-st.title("🎬 AI Video Dubbing (Pro Version - High Speed & Microsoft Voice)")
-st.write("Batch Processing နည်းပညာဖြင့် အမြန်ဆုံး ဘာသာပြန်ပြီး Microsoft Azure AI အသံ (Thiha) ဖြင့် Dubbing ထိုးပေးသည့်စနစ်")
+st.title("🎬 AI Video Dubbing (No API Key - Fast Version)")
+st.write("API Key လုံးဝမလိုဘဲ အခမဲ့ ဘာသာပြန်ပေးပြီး Microsoft Azure AI အသံ (Thiha) ဖြင့် Dubbing ထိုးပေးသည့်စနစ်")
 
 def clean_and_format_for_tts(text):
     chars_to_remove = ['.', ',', '"', "'", '?', '!', ':', ';', '(', ')', '[', ']', '{', '}', '-', '_', '...']
@@ -47,11 +45,6 @@ def clean_and_format_for_tts(text):
         
     return text.strip()
 
-try:
-    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
-except:
-    st.error("Gemini API Key ကို Streamlit Secrets တွင် မထည့်ရသေးပါ။")
-
 uploaded_file = st.file_uploader("သင့်၏ ဗီဒီယိုဖိုင် (.mp4) ကို ဤနေရာတွင် ရွေးချယ်တင်ပါ", type=["mp4"])
 
 if uploaded_file is not None:
@@ -76,69 +69,9 @@ if uploaded_file is not None:
             if not segments:
                 st.warning("ဗီဒီယိုထဲမှ စကားပြောသံကို မဖမ်းမိပါ။")
             else:
-                st.text("၃။ စာသားများအားလုံးကို စုပေါင်း၍ တစ်ကြိမ်တည်း ဘာသာပြန်နေပါသည် (High Speed Mode)...")
-
-                batch_texts = []
-                for i, segment in enumerate(segments):
-                    text = segment["text"].strip()
-                    if text:
-                        batch_texts.append(f"[{i}] {text}")
+                st.text("၃။ API Key မလိုသောစနစ်ဖြင့် ဘာသာပြန်၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
-                full_prompt_text = "\n".join(batch_texts)
-                
-                prompt = (
-                    "အောက်ပါ တရုတ်စာသားများကို မြန်မာလို ဘာသာပြန်ပေးပါ။ စာကြောင်းတစ်ခုစီ၏ ရှေ့တွင် ကွင်းပိတ်နှင့် နံပါတ် (ဥပမာ - [0], [1]) ပါရှိပါသည်။\n"
-                    "ဘာသာပြန်ပြီးပါက ထိုနံပါတ်ကွင်းပိတ်ကို မူလအတိုင်း မပျက်မကွက် ပြန်ထည့်ပေးပါ။\n"
-                    "ဥပမာ: '[0] 你好' -> '[0] မင်္ဂလာပါ။'\n"
-                    "**အရေးကြီးသော စည်းကမ်းချက်များ:**\n"
-                    "၁။ **စကားပြောဟန်သာ သုံးပါ:** 'ထိုသူသည်', '၎င်းက' ကဲ့သို့သော စာအုပ်ကြီးဆန်သော စကားလုံးများကို လုံးဝမသုံးပါနှင့်။ 'သူက', 'အဲဒီလူက' ကဲ့သို့ နေ့စဉ်သုံး စကားပြောဟန်ဖြင့်သာ ပြန်ဆိုပါ။\n"
-                    "၂။ **ဇာတ်ကောင်နာမည် မသုံးရ:** (ဥပမာ - 'လီမင်' အစား 'ကောင်လေး'၊ 'ရှောင်မေ' အစား 'ကောင်မလေး')။\n"
-                    "၃။ **ပုံပြင်ပြောသလို ပြောပါ:** ပရိသတ်ကို ဇာတ်လမ်းပြန်ပြောပြနေသည့် (Movie Recap) စတိုင်ဖြင့် သွက်သွက်လက်လက် ပြောပြပါ။\n"
-                    "၄။ **အင်္ဂလိပ်စာ လုံးဝမပါရ:** မြန်မာဘာသာ သီးသန့်သာ ဖြစ်ရမည်။\n"
-                    "၅။ အခြား စကားချီးများ (ဥပမာ - 'ဟုတ်ကဲ့ပါ') လုံးဝမထည့်ပါနှင့်။ ဘာသာပြန်စာသားသက်သက်သာ ပေးပါ။\n\n"
-                    "ဘာသာပြန်ရမည့်စာသားများ:\n"
-                    f"{full_prompt_text}"
-                )
-
-                translated_dict = {}
-                response_text = ""
-                
-                # အမှန်ကန်ဆုံး Model ဖြစ်သော gemini-3.6-flash ကိုသာ အသုံးပြုပါမည် (404 Error မတက်စေရန်)
-                models_to_try = ['gemini-3.6-flash']
-                success_flag = False
-                last_error_message = ""
-
-                # Movie Recap များအတွက် Safety Filter (လုံခြုံရေး ပိတ်ပင်မှု) အားလုံးကို ဖြုတ်ချခြင်း
-                safety_settings = [
-                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
-                ]
-
-                for m_name in models_to_try:
-                    try:
-                        gemini_model = genai.GenerativeModel(m_name)
-                        response = gemini_model.generate_content(prompt, safety_settings=safety_settings)
-                        response_text = response.text.strip()
-                        st.success(f"💡 အောင်မြင်စွာ အသုံးပြုနိုင်သော Model: {m_name}")
-                        success_flag = True
-                        break
-                    except Exception as e:
-                        last_error_message = str(e)
-                        continue
-
-                if success_flag and response_text:
-                    pattern = r"\[(\d+)\]\s*(.*)"
-                    matches = re.findall(pattern, response_text)
-                    for match in matches:
-                        idx = int(match[0])
-                        translated_text = match[1].strip()
-                        translated_dict[idx] = translated_text
-                else:
-                    st.error(f"API ချိတ်ဆက်မှု မအောင်မြင်ပါ။\nအသေးစိတ် Error: {last_error_message}")
-
-                st.text("၄။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
+                translator = GoogleTranslator(source='auto', target='my')
                 
                 final_clips = []
                 last_end = 0
@@ -148,6 +81,7 @@ if uploaded_file is not None:
                 for i, segment in enumerate(segments):
                     start_time = segment["start"]
                     end_time = segment["end"]
+                    original_text = segment["text"].strip()
                     
                     if start_time > last_end:
                         gap_duration = start_time - last_end
@@ -161,29 +95,35 @@ if uploaded_file is not None:
                     safe_end = min(end_time, video.duration)
                     speech_clip = video.subclip(start_time, safe_end)
 
-                    myanmar_text = translated_dict.get(i, "")
-
-                    if myanmar_text:
-                        cleaned_myanmar_text = clean_and_format_for_tts(myanmar_text)
-                        temp_seg_audio = f"temp_audio_{i}.mp3"
-                        
+                    if original_text:
                         try:
-                            subprocess.run(['edge-tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio])
+                            # API Key မလိုဘဲ တိုက်ရိုက် ဘာသာပြန်ခြင်း (Limit မရှိပါ)
+                            myanmar_text = translator.translate(original_text)
                             
-                            raw_audio_clip = AudioFileClip(temp_seg_audio)
-                            fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
-                            
-                            target_duration = fast_audio_clip.duration
-                            current_duration = speech_clip.duration
-                            
-                            if current_duration > 0 and target_duration > 0:
-                                speed_factor = current_duration / target_duration
-                                adjusted_clip = speech_clip.fx(vfx.speedx, factor=speed_factor)
-                                adjusted_clip = adjusted_clip.set_audio(fast_audio_clip)
-                                final_clips.append(adjusted_clip)
+                            if myanmar_text:
+                                cleaned_myanmar_text = clean_and_format_for_tts(myanmar_text)
+                                temp_seg_audio = f"temp_audio_{i}.mp3"
+                                
+                                subprocess.run(['edge-tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio])
+                                
+                                raw_audio_clip = AudioFileClip(temp_seg_audio)
+                                fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
+                                
+                                target_duration = fast_audio_clip.duration
+                                current_duration = speech_clip.duration
+                                
+                                if current_duration > 0 and target_duration > 0:
+                                    speed_factor = current_duration / target_duration
+                                    adjusted_clip = speech_clip.fx(vfx.speedx, factor=speed_factor)
+                                    adjusted_clip = adjusted_clip.set_audio(fast_audio_clip)
+                                    final_clips.append(adjusted_clip)
+                                else:
+                                    final_clips.append(speech_clip)
                             else:
                                 final_clips.append(speech_clip)
+                                
                         except Exception as e:
+                            st.warning(f"အပိုင်းအမှတ် {i+1} တွင် အခက်အခဲရှိနေပါသည်: {e}")
                             final_clips.append(speech_clip)
                     else:
                         final_clips.append(speech_clip)
@@ -194,7 +134,7 @@ if uploaded_file is not None:
                 if last_end < video.duration:
                     final_clips.append(video.subclip(last_end, video.duration))
 
-                st.text("၅။ အပိုင်းများအားလုံးကို ဗီဒီယိုတစ်ခုတည်းအဖြစ် ပြန်လည် ပေါင်းစပ်နေပါသည်...")
+                st.text("၄။ အပိုင်းများအားလုံးကို ဗီဒီယိုတစ်ခုတည်းအဖြစ် ပြန်လည် ပေါင်းစပ်နေပါသည်...")
                 output_video_path = "Myanmar_Dubbed_Pro.mp4"
                 
                 if final_clips:
