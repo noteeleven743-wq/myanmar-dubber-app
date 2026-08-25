@@ -1,6 +1,5 @@
 streamlit
 openai-whisper
-google-generativeai
+google-generativeai>=0.7.0
 gTTS
-moviepy==1.0.3
-imageio-ffmpeg
+moviepy
