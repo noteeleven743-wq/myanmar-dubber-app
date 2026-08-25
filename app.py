@@ -11,14 +11,11 @@ import time
 st.title("🎬 AI Video Dubbing (Pro Version - Custom Voice)")
 st.write("AI အသံကို ၃၀% ပိုမြန်စေပြီး ရုပ်နှင့်အသံ အလိုအလျောက် ချိန်ညှိပေးသည့်စနစ်")
 
-# ကိုရဲလင်းနိုင်၏ စည်းကမ်းချက်များအတိုင်း စာသားကို သန့်စင်ပေးမည့်စနစ်
 def clean_and_format_for_tts(text):
-    # သင်္ကေတများ ဖယ်ရှားခြင်း
     chars_to_remove = ['.', ',', '"', "'", '?', '!', ':', ';', '(', ')', '[', ']', '{', '}', '-', '_', '...']
     for c in chars_to_remove:
         text = text.replace(c, ' ')
         
-    # သတ်မှတ်ထားသော စာလုံးပေါင်းများ အလိုအလျောက် ပြင်ဆင်ခြင်း
     replacements = {
         "ယောက်ျား": "ယောက်ကျား",
         "သူဌေး": "သဌေး",
@@ -101,7 +98,6 @@ if uploaded_file is not None:
 
                     try:
                         if original_text:
-                            # ကိုရဲလင်းနိုင်၏ အမိုက်စား Prompt အသစ်
                             prompt = f"""အောက်ပါ တရုတ်စာသားကို မြန်မာလို ဘာသာပြန်ပေးပါ။ အောက်ပါ စည်းကမ်းချက်များကို တိတိကျကျ လိုက်နာပါ -
 ၁။ ဇာတ်ကောင်နာမည်တွေ လုံးဝ မထည့်ရ (နိုင်ငံခြားနာမည်တွေအစား ကောင်လေး၊ ကောင်မလေး၊ သူဌေး၊ အမေ စသဖြင့် နာမ်စားများသာ သုံးပါ)။
 ၂။ ပုံအညွှန်း (Image descriptions) များ လုံးဝ မထည့်ရ။
@@ -114,15 +110,12 @@ if uploaded_file is not None:
                             response = gemini_model.generate_content(prompt)
                             myanmar_text = response.text.strip()
                             
-                            # စာသားသန့်စင်ခြင်း
                             cleaned_myanmar_text = clean_and_format_for_tts(myanmar_text)
                             
-                            # မြန်မာအသံ ဖန်တီးခြင်း
                             temp_seg_audio = f"temp_audio_{i}.mp3"
                             tts = gTTS(text=cleaned_myanmar_text, lang='my', slow=False)
                             tts.save(temp_seg_audio)
                             
-                            # အသံကို ၃၀% မြန်စေရန် Speed Up (1.3x) လုပ်ခြင်း
                             raw_audio_clip = AudioFileClip(temp_seg_audio)
                             fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.3)
                             
@@ -137,7 +130,6 @@ if uploaded_file is not None:
                             else:
                                 final_clips.append(speech_clip)
                                 
-                            # API limit မကျော်စေရန် ၂ စက္ကန့် အနားပေးခြင်း
                             time.sleep(2) 
                             
                         else:
