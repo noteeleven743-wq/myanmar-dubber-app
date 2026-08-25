@@ -73,8 +73,8 @@ if uploaded_file is not None:
             else:
                 st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
-                # အရေးကြီးဆုံး ပြင်ဆင်ချက် - Model နာမည်အမှန် ပြောင်းထားပါသည် (တစ်နေ့ အကြိမ် ၁၅၀၀ ရပါမည်)
-                gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+                # အားလုံးနဲ့ ကိုက်ညီမည့် "gemini-pro" ကို ပြောင်းသုံးထားပါသည် (404 Error ပျောက်သွားပါမည်)
+                gemini_model = genai.GenerativeModel('gemini-pro')
                 
                 final_clips = []
                 last_end = 0
