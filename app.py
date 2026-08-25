@@ -73,8 +73,8 @@ if uploaded_file is not None:
             else:
                 st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
-                # အမြန်ဆုံးနှင့် Limit အများဆုံးရသည့် gemini-1.5-flash ကို ပြန်ပြောင်းထားပါသည်
-                gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+                # အသေချာဆုံးဖြစ်စေရန် latest tag ဖြင့် ပြင်ဆင်ထားပါသည်
+                gemini_model = genai.GenerativeModel('gemini-1.5-flash-latest')
                 
                 final_clips = []
                 last_end = 0
@@ -170,3 +170,4 @@ if uploaded_file is not None:
 
         except Exception as e:
             st.error(f"အဆင်မပြေမှု တစ်ခုခုဖြစ်သွားပါသည် - {e}")
+
