@@ -77,7 +77,8 @@ if uploaded_file is not None:
             else:
                 st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
-                gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+                # အစ်ကိုပြောတဲ့အတိုင်း အလုပ်ဖြစ်ခဲ့သော gemini-3.1-flash ကို ပြန်သုံးထားပါသည်
+                gemini_model = genai.GenerativeModel('gemini-3.1-flash')
                 
                 final_clips = []
                 last_end = 0
@@ -120,7 +121,7 @@ if uploaded_file is not None:
                             
                             temp_seg_audio = f"temp_audio_{i}.mp3"
                             
-                            # gTTS အစား Microsoft Edge (Thiha) အသံကို အသုံးပြုခြင်း
+                            # API Key မလိုဘဲ အခမဲ့ရသော Microsoft Edge (Thiha) အသံကို အသုံးပြုခြင်း
                             subprocess.run(['edge-tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio])
                             
                             raw_audio_clip = AudioFileClip(temp_seg_audio)
