@@ -77,8 +77,8 @@ if uploaded_file is not None:
             else:
                 st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
-                # အစ်ကိုပြောတဲ့အတိုင်း အလုပ်ဖြစ်ခဲ့သော gemini-3.1-flash ကို ပြန်သုံးထားပါသည်
-                gemini_model = genai.GenerativeModel('gemini-3.1-flash')
+                # အမှန်ကန်ဆုံးနှင့် တရားဝင်အဖြစ်ဆုံး gemini-1.5-flash ကိုသာ အသုံးပြုထားပါသည်
+                gemini_model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 final_clips = []
                 last_end = 0
@@ -126,7 +126,6 @@ if uploaded_file is not None:
                             
                             raw_audio_clip = AudioFileClip(temp_seg_audio)
                             
-                            # Microsoft အသံသည် သဘာဝကျပြီးသားဖြစ်သဖြင့် အမြန်နှုန်းကို ၁.၁၅ သာ ထားပါသည်
                             fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
                             
                             target_duration = fast_audio_clip.duration
