@@ -1,6 +1,6 @@
 streamlit
 openai-whisper
-deep-translator
+google-generativeai
 gTTS
 moviepy==1.0.3
 imageio-ffmpeg
