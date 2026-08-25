@@ -77,9 +77,6 @@ if uploaded_file is not None:
                 st.warning("ဗီဒီယိုထဲမှ စကားပြောသံကို မဖမ်းမိပါ။")
             else:
                 st.text("၃။ စာသားများအားလုံးကို စုပေါင်း၍ တစ်ကြိမ်တည်း ဘာသာပြန်နေပါသည် (High Speed Mode)...")
-                
-                gemini_model = genai.GenerativeModel('gemini-3.6-flash')
-                st.success("💡 အသုံးပြုနေသော AI Model: gemini-3.6-flash")
 
                 # စာကြောင်းများကို [0] စာသား, [1] စာသား ပုံစံဖြင့် စုစည်းခြင်း
                 batch_texts = []
@@ -105,21 +102,37 @@ if uploaded_file is not None:
                 )
 
                 translated_dict = {}
+                response_text = ""
                 
-                # API Limit မငြိအောင် တစ်ခါတည်းသာ လှမ်းမေးမည်
-                try:
-                    response = gemini_model.generate_content(prompt)
-                    response_text = response.text.strip()
-                    
-                    # [နံပါတ်] ဖြင့် ပြန်လည်ခွဲထုတ်ခြင်း
+                # Model Fallback စနစ် (gemini-3.6-flash က Quota ပြည့်ရင် gemini-1.5-pro သို့ gemini-pro သို့ ပြောင်းသုံးမည်)
+                models_to_try = ['gemini-3.6-flash', 'gemini-1.5-pro', 'gemini-pro']
+                success_flag = False
+
+                for m_name in models_to_try:
+                    try:
+                        gemini_model = genai.GenerativeModel(m_name)
+                        response = gemini_model.generate_content(prompt)
+                        response_text = response.text.strip()
+                        st.success(f"💡 အောင်မြင်စွာ အသုံးပြုနိုင်သော Model: {m_name}")
+                        success_flag = True
+                        break
+                    except Exception as e:
+                        # 429 သို့မဟုတ် Quota သို့မဟုတ် 404 Error တက်ပါက နောက် Model တစ်ခုသို့ ဆက်သွားမည်
+                        if "429" in str(e) or "quota" in str(e).lower() or "404" in str(e):
+                            continue
+                        else:
+                            st.warning(f"Model {m_name} တွင် အခက်အခဲရှိနေပါသည်: {e}")
+                            continue
+
+                if success_flag and response_text:
                     pattern = r"\[(\d+)\]\s*(.*)"
                     matches = re.findall(pattern, response_text)
                     for match in matches:
                         idx = int(match[0])
                         translated_text = match[1].strip()
                         translated_dict[idx] = translated_text
-                except Exception as e:
-                    st.error(f"ဘာသာပြန်ဆိုမှု အခက်အခဲဖြစ်သွားပါသည်: {e}")
+                else:
+                    st.error("ရနိုင်သော AI Model အားလုံး Quota ပြည့်သွားပါပြီ သို့မဟုတ် အချိတ်အဆက် မအောင်မြင်ပါ။ ကျေးဇူးပြု၍ ခဏစောင့်ပါ သို့မဟုတ် API Key အသစ် သုံးပါ။")
 
                 st.text("၄။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
@@ -144,7 +157,6 @@ if uploaded_file is not None:
                     safe_end = min(end_time, video.duration)
                     speech_clip = video.subclip(start_time, safe_end)
 
-                    # အထက်တွင် ဘာသာပြန်ထားသော စာရင်းထဲမှ မိမိနံပါတ်နှင့်ဆိုင်သော စာသားကို ယူမည်
                     myanmar_text = translated_dict.get(i, "")
 
                     if myanmar_text:
