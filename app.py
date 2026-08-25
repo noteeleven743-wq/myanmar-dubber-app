@@ -8,8 +8,8 @@ import tempfile
 import time
 import subprocess
 
-st.title("🎬 AI Video Dubbing (Pro Version - Microsoft Voice)")
-st.write("Microsoft Azure ၏ သဘာဝကျသော AI အသံ (Thiha) ဖြင့် အလိုအလျောက် ချိန်ညှိပေးသည့်စနစ်")
+st.title("🎬 AI Video Dubbing (Pro Version - Auto Model & Microsoft Voice)")
+st.write("အလုပ်လုပ်သော Model ကို အလိုအလျောက်ရှာဖွေပေးပြီး Microsoft Azure AI အသံ (Thiha) ဖြင့် Dubbing ထိုးပေးသည့်စနစ်")
 
 def clean_and_format_for_tts(text):
     chars_to_remove = ['.', ',', '"', "'", '?', '!', ':', ';', '(', ')', '[', ']', '{', '}', '-', '_', '...']
@@ -51,6 +51,27 @@ try:
 except:
     st.error("Gemini API Key ကို Streamlit Secrets တွင် မထည့်ရသေးပါ။")
 
+def get_best_model():
+    try:
+        available_models = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                available_models.append(m.name)
+        
+        # ဦးစားပေးအနေဖြင့် flash ပါသော မော်ဒယ်ကို အလိုအလျောက်ရှာမည်
+        for m in available_models:
+            if 'flash' in m.lower():
+                return m
+        
+        # flash မရှိပါက ပထမဆုံးတွေ့သော အလုပ်လုပ်သည့် မော်ဒယ်ကို သုံးမည်
+        if available_models:
+            return available_models[0]
+        else:
+            return 'gemini-1.5-flash'
+    except:
+        # API လှမ်းမေး၍မရပါက အရင်က အလုပ်ဖြစ်ခဲ့သော နာမည်ကို အရန်အနေဖြင့် သုံးမည်
+        return 'gemini-3.1-flash-lite'
+
 uploaded_file = st.file_uploader("သင့်၏ ဗီဒီယိုဖိုင် (.mp4) ကို ဤနေရာတွင် ရွေးချယ်တင်ပါ", type=["mp4"])
 
 if uploaded_file is not None:
@@ -77,8 +98,10 @@ if uploaded_file is not None:
             else:
                 st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
-                # အမှန်ကန်ဆုံးနှင့် တရားဝင်အဖြစ်ဆုံး gemini-1.5-flash ကိုသာ အသုံးပြုထားပါသည်
-                gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+                # API Key မှ ရနိုင်သော အကောင်းဆုံး Model ကို အလိုအလျောက် ရှာဖွေချိတ်ဆက်ခြင်း
+                best_model_name = get_best_model()
+                st.success(f"💡 အသုံးပြုနေသော AI Model: {best_model_name}")
+                gemini_model = genai.GenerativeModel(best_model_name)
                 
                 final_clips = []
                 last_end = 0
@@ -126,6 +149,7 @@ if uploaded_file is not None:
                             
                             raw_audio_clip = AudioFileClip(temp_seg_audio)
                             
+                            # Microsoft အသံသည် သဘာဝကျပြီးသားဖြစ်သဖြင့် အမြန်နှုန်းကို ၁.၁၅ သာ ထားပါသည်
                             fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
                             
                             target_duration = fast_audio_clip.duration
