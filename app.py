@@ -98,7 +98,6 @@ if uploaded_file is not None:
 
                     try:
                         if original_text:
-                            # ဤနေရာတွင် Code Format ပျက်မသွားစေရန် Single Quotes ဖြင့် ပြင်ရေးထားပါသည်
                             prompt = (
                                 "အောက်ပါ တရုတ်စာသားကို မြန်မာလို ဘာသာပြန်ပေးပါ။ အောက်ပါ စည်းကမ်းချက်များကို တိတိကျကျ လိုက်နာပါ -\n"
                                 "၁။ ဇာတ်ကောင်နာမည်တွေ လုံးဝ မထည့်ရ (နိုင်ငံခြားနာမည်တွေအစား ကောင်လေး၊ ကောင်မလေး၊ သူဌေး၊ အမေ စသဖြင့် နာမ်စားများသာ သုံးပါ)။\n"
@@ -132,7 +131,8 @@ if uploaded_file is not None:
                             else:
                                 final_clips.append(speech_clip)
                                 
-                            time.sleep(2) 
+                            # API Limit အတွက် (၅) စက္ကန့် အနားပေးခြင်း
+                            time.sleep(5) 
                             
                         else:
                             final_clips.append(speech_clip)
@@ -140,7 +140,8 @@ if uploaded_file is not None:
                     except Exception as e:
                         st.warning(f"အပိုင်းအမှတ် {i+1} တွင် အခက်အခဲရှိနေပါသည်: {e}") 
                         final_clips.append(speech_clip)
-                        time.sleep(2)
+                        # API Limit အတွက် (၅) စက္ကန့် အနားပေးခြင်း
+                        time.sleep(5)
                     
                     last_end = safe_end
                     progress_bar.progress((i + 1) / total_segments)
