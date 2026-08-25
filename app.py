@@ -77,7 +77,6 @@ if uploaded_file is not None:
             else:
                 st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
-                # API မှ တောင်းဆိုထားသော မော်ဒယ်အမည်ကို အတိအကျ သုံးထားပါသည်
                 gemini_model = genai.GenerativeModel('gemini-3.6-flash')
                 st.success("💡 အသုံးပြုနေသော AI Model: gemini-3.6-flash")
                 
@@ -103,52 +102,64 @@ if uploaded_file is not None:
                     safe_end = min(end_time, video.duration)
                     speech_clip = video.subclip(start_time, safe_end)
 
-                    try:
-                        if original_text:
-                            prompt = (
-                                "အောက်ပါ တရုတ်စာသားကို မြန်မာလို ဘာသာပြန်ပေးပါ။\n"
-                                "**အရေးကြီးသော စည်းကမ်းချက်များ:**\n"
-                                "၁။ **စကားပြောဟန်သာ သုံးပါ:** 'ထိုသူသည်', '၎င်းက', 'ထို့နောက်' ကဲ့သို့သော စာအုပ်ကြီးဆန်သော စကားလုံးများကို လုံးဝ(လုံးဝ) မသုံးပါနှင့်။ 'သူက', 'အဲဒီနောက်', 'အဲဒီလူက' ကဲ့သို့သော နေ့စဉ်သုံး စကားပြောဟန်ဖြင့်သာ ပြန်ဆိုပါ။\n"
-                                "၂။ **ဇာတ်ကောင်နာမည် မသုံးရ:** (ဥပမာ - 'လီမင်' အစား 'ကောင်လေး'၊ 'ရှောင်မေ' အစား 'ကောင်မလေး') စသဖြင့် နာမ်စားများကိုသာ သုံးပါ။\n"
-                                "၃။ **ပုံပြင်ပြောသလို ပြောပါ:** ပရိသတ်ကို ဇာတ်လမ်းပြန်ပြောပြနေသည့် (Movie Recap) စတိုင်ဖြင့် သွက်သွက်လက်လက် ပြောပြပါ။\n"
-                                "၄။ **အင်္ဂလိပ်စာ လုံးဝမပါရ:** မြန်မာဘာသာ သီးသန့်သာ ဖြစ်ရမည်။\n\n"
-                                f"ဘာသာပြန်ရမည့် တရုတ်စာသား - {original_text}"
-                            )
-                            
-                            response = gemini_model.generate_content(prompt)
-                            myanmar_text = response.text.strip()
-                            
+                    if original_text:
+                        prompt = (
+                            "အောက်ပါ တရုတ်စာသားကို မြန်မာလို ဘာသာပြန်ပေးပါ။\n"
+                            "**အရေးကြီးသော စည်းကမ်းချက်များ:**\n"
+                            "၁။ **စကားပြောဟန်သာ သုံးပါ:** 'ထိုသူသည်', '၎င်းက', 'ထို့နောက်' ကဲ့သို့သော စာအုပ်ကြီးဆန်သော စကားလုံးများကို လုံးဝမသုံးပါနှင့်။ 'သူက', 'အဲဒီနောက်', 'အဲဒီလူက' ကဲ့သို့သော နေ့စဉ်သုံး စကားပြောဟန်ဖြင့်သာ ပြန်ဆိုပါ။\n"
+                            "၂။ **ဇာတ်ကောင်နာမည် မသုံးရ:** (ဥပမာ - 'လီမင်' အစား 'ကောင်လေး'၊ 'ရှောင်မေ' အစား 'ကောင်မလေး') စသဖြင့် နာမ်စားများကိုသာ သုံးပါ။\n"
+                            "၃။ **ပုံပြင်ပြောသလို ပြောပါ:** ပရိသတ်ကို ဇာတ်လမ်းပြန်ပြောပြနေသည့် (Movie Recap) စတိုင်ဖြင့် သွက်သွက်လက်လက် ပြောပြပါ။\n"
+                            "၄။ **အင်္ဂလိပ်စာ လုံးဝမပါရ:** မြန်မာဘာသာ သီးသန့်သာ ဖြစ်ရမည်။\n\n"
+                            f"ဘာသာပြန်ရမည့် တရုတ်စာသား - {original_text}"
+                        )
+                        
+                        myanmar_text = ""
+                        # API Limit ငြိပါက အကြိမ်ကြိမ် ပြန်ကြိုးစားမည့်စနစ် (Retry Mechanism)
+                        max_retries = 3
+                        for attempt in range(max_retries):
+                            try:
+                                response = gemini_model.generate_content(prompt)
+                                myanmar_text = response.text.strip()
+                                break # အောင်မြင်ပါက loop မှ ထွက်မည်
+                            except Exception as e:
+                                if "429" in str(e) or "quota" in str(e).lower():
+                                    st.warning(f"⚠️ Limit ငြိသွား၍ စက္ကန့် ၂၀ ခဏစောင့်နေပါသည်... (အပိုင်း {i+1})")
+                                    time.sleep(20) # ၂၀ စက္ကန့် နားမည်
+                                else:
+                                    st.warning(f"အပိုင်းအမှတ် {i+1} တွင် အခက်အခဲရှိနေပါသည်: {e}")
+                                    break
+
+                        if myanmar_text:
                             cleaned_myanmar_text = clean_and_format_for_tts(myanmar_text)
-                            
                             temp_seg_audio = f"temp_audio_{i}.mp3"
                             
-                            # API Key မလိုဘဲ အခမဲ့ရသော Microsoft Edge (Thiha) အသံကို အသုံးပြုခြင်း
-                            subprocess.run(['edge-tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio])
-                            
-                            raw_audio_clip = AudioFileClip(temp_seg_audio)
-                            
-                            fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
-                            
-                            target_duration = fast_audio_clip.duration
-                            current_duration = speech_clip.duration
-                            
-                            if current_duration > 0 and target_duration > 0:
-                                speed_factor = current_duration / target_duration
-                                adjusted_clip = speech_clip.fx(vfx.speedx, factor=speed_factor)
-                                adjusted_clip = adjusted_clip.set_audio(fast_audio_clip)
-                                final_clips.append(adjusted_clip)
-                            else:
-                                final_clips.append(speech_clip)
+                            try:
+                                # Microsoft Edge (Thiha) အသံကို အသုံးပြုခြင်း
+                                subprocess.run(['edge-tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio])
                                 
-                            time.sleep(5) 
-                            
+                                raw_audio_clip = AudioFileClip(temp_seg_audio)
+                                fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
+                                
+                                target_duration = fast_audio_clip.duration
+                                current_duration = speech_clip.duration
+                                
+                                if current_duration > 0 and target_duration > 0:
+                                    speed_factor = current_duration / target_duration
+                                    adjusted_clip = speech_clip.fx(vfx.speedx, factor=speed_factor)
+                                    adjusted_clip = adjusted_clip.set_audio(fast_audio_clip)
+                                    final_clips.append(adjusted_clip)
+                                else:
+                                    final_clips.append(speech_clip)
+                            except Exception as e:
+                                final_clips.append(speech_clip)
                         else:
                             final_clips.append(speech_clip)
                             
-                    except Exception as e:
-                        st.warning(f"အပိုင်းအမှတ် {i+1} တွင် အခက်အခဲရှိနေပါသည်: {e}") 
+                        # အပိုင်းတစ်ခုပြီးတိုင်း Limit မငြိအောင် ၈ စက္ကန့် ပုံမှန်နားပေးမည်
+                        time.sleep(8) 
+                        
+                    else:
                         final_clips.append(speech_clip)
-                        time.sleep(5)
                     
                     last_end = safe_end
                     progress_bar.progress((i + 1) / total_segments)
