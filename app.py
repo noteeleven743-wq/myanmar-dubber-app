@@ -103,8 +103,8 @@ if uploaded_file is not None:
                 translated_dict = {}
                 response_text = ""
                 
-                # အမှန်ကန်ဆုံး Google Gemini Model နာမည်များ
-                models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro']
+                # အမှန်ကန်ဆုံး Model ဖြစ်သော gemini-3.6-flash ကိုသာ အသုံးပြုပါမည် (404 Error မတက်စေရန်)
+                models_to_try = ['gemini-3.6-flash']
                 success_flag = False
                 last_error_message = ""
 
@@ -136,7 +136,6 @@ if uploaded_file is not None:
                         translated_text = match[1].strip()
                         translated_dict[idx] = translated_text
                 else:
-                    # Error အစစ်အမှန်ကို ဖော်ပြပေးမည်
                     st.error(f"API ချိတ်ဆက်မှု မအောင်မြင်ပါ။\nအသေးစိတ် Error: {last_error_message}")
 
                 st.text("၄။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
