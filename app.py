@@ -1,15 +1,15 @@
 import streamlit as st
 import whisper
 import google.generativeai as genai
-from gtts import gTTS
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 import moviepy.video.fx.all as vfx
 import os
 import tempfile
 import time
+import subprocess
 
-st.title("🎬 AI Video Dubbing (Pro Version - Gemini 3.1)")
-st.write("Gemini 3.1 Flash ဖြင့် အသံကို ၃၀% ပိုမြန်စေပြီး ရုပ်နှင့်အသံ အလိုအလျောက် ချိန်ညှိပေးသည့်စနစ်")
+st.title("🎬 AI Video Dubbing (Pro Version - Microsoft Voice)")
+st.write("Microsoft Azure ၏ သဘာဝကျသော AI အသံ (Thiha) ဖြင့် အလိုအလျောက် ချိန်ညှိပေးသည့်စနစ်")
 
 def clean_and_format_for_tts(text):
     chars_to_remove = ['.', ',', '"', "'", '?', '!', ':', ';', '(', ')', '[', ']', '{', '}', '-', '_', '...']
@@ -35,6 +35,10 @@ def clean_and_format_for_tts(text):
         "သူတောင်းစား": "သတောင်းစား",
         "CEO": "စီးအီးအို",
         "လောလီပေါ့": "သကြားလုံး",
+        "တစ်ကောင်": "တစ် ကောင်", 
+        "တံခါး": "တခါး",
+        "ကြပါဘူး": "ကျပါဘူး",
+        "သတ္တဝါ": "သက်တဝါ",
         "၁": "တစ်", "၂": "နှစ်", "၃": "သုံး", "၄": "လေး", "၅": "ငါး", "၆": "ခြောက်", "၇": "ခုနစ်", "၈": "ရှစ်", "၉": "ကိုး", "၀": "သုည"
     }
     for old_word, new_word in replacements.items():
@@ -73,8 +77,7 @@ if uploaded_file is not None:
             else:
                 st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
-                # အသစ်စက်စက် Gemini 3.1 Flash-Lite မော်דယ်ကို အသုံးပြုထားပါသည်
-                gemini_model = genai.GenerativeModel('gemini-3.1-flash-lite')
+                gemini_model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 final_clips = []
                 last_end = 0
@@ -101,12 +104,12 @@ if uploaded_file is not None:
                     try:
                         if original_text:
                             prompt = (
-                                "အောက်ပါ တရုတ်စာသားကို မြန်မာလို ဘာသာပြန်ပေးပါ။ အောက်ပါ စည်းကမ်းချက်များကို တိတိကျကျ လိုက်နာပါ -\n"
-                                "၁။ ဇာတ်ကောင်နာမည်တွေ လုံးဝ မထည့်ရ (နိုင်ငံခြားနာမည်တွေအစား ကောင်လေး၊ ကောင်မလေး၊ သူဌေး၊ အမေ စသဖြင့် နာမ်စားများသာ သုံးပါ)။\n"
-                                "၂။ ပုံအညွှန်း (Image descriptions) များ လုံးဝ မထည့်ရ။\n"
-                                "၃။ ဇာတ်လမ်းပြောပြသည့်ပုံစံ ဖြင့် ရိုးရှင်း၊ ချောမွေ့ပြီး နားထောင်လို့ကောင်းအောင် ပုံပြင်ပြောပြတဲ့ ပုံမျိုး ရေးပေးပါ။\n"
-                                "၄။ မူရင်းဇာတ်လမ်းပါ အကြောင်းအရာ အချက်အလက်များကို တစ်ခုမှ မကျန်စေဘဲ အသေးစိတ် အပြည့်အစုံ ပြန်ဆိုပေးပါ။\n"
-                                "၅။ အင်္ဂလိပ်စာလုံး လုံးဝ မရောဘဲ မြန်မာဘာသာ သီးသန့်ဖြင့်သာ ရေးပေးပါ။\n\n"
+                                "အောက်ပါ တရုတ်စာသားကို မြန်မာလို ဘာသာပြန်ပေးပါ။\n"
+                                "**အရေးကြီးသော စည်းကမ်းချက်များ:**\n"
+                                "၁။ **စကားပြောဟန်သာ သုံးပါ:** 'ထိုသူသည်', '၎င်းက', 'ထို့နောက်' ကဲ့သို့သော စာအုပ်ကြီးဆန်သော စကားလုံးများကို လုံးဝ(လုံးဝ) မသုံးပါနှင့်။ 'သူက', 'အဲဒီနောက်', 'အဲဒီလူက' ကဲ့သို့သော နေ့စဉ်သုံး စကားပြောဟန်ဖြင့်သာ ပြန်ဆိုပါ။\n"
+                                "၂။ **ဇာတ်ကောင်နာမည် မသုံးရ:** (ဥပမာ - 'လီမင်' အစား 'ကောင်လေး'၊ 'ရှောင်မေ' အစား 'ကောင်မလေး') စသဖြင့် နာမ်စားများကိုသာ သုံးပါ။\n"
+                                "၃။ **ပုံပြင်ပြောသလို ပြောပါ:** ပရိသတ်ကို ဇာတ်လမ်းပြန်ပြောပြနေသည့် (Movie Recap) စတိုင်ဖြင့် သွက်သွက်လက်လက် ပြောပြပါ။\n"
+                                "၄။ **အင်္ဂလိပ်စာ လုံးဝမပါရ:** မြန်မာဘာသာ သီးသန့်သာ ဖြစ်ရမည်။\n\n"
                                 f"ဘာသာပြန်ရမည့် တရုတ်စာသား - {original_text}"
                             )
                             
@@ -116,11 +119,14 @@ if uploaded_file is not None:
                             cleaned_myanmar_text = clean_and_format_for_tts(myanmar_text)
                             
                             temp_seg_audio = f"temp_audio_{i}.mp3"
-                            tts = gTTS(text=cleaned_myanmar_text, lang='my', slow=False)
-                            tts.save(temp_seg_audio)
+                            
+                            # gTTS အစား Microsoft Edge (Thiha) အသံကို အသုံးပြုခြင်း
+                            subprocess.run(['edge-tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio])
                             
                             raw_audio_clip = AudioFileClip(temp_seg_audio)
-                            fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.3)
+                            
+                            # Microsoft အသံသည် သဘာဝကျပြီးသားဖြစ်သဖြင့် အမြန်နှုန်းကို ၁.၁၅ သာ ထားပါသည်
+                            fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
                             
                             target_duration = fast_audio_clip.duration
                             current_duration = speech_clip.duration
