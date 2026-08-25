@@ -103,23 +103,30 @@ if uploaded_file is not None:
                 translated_dict = {}
                 response_text = ""
                 
-                models_to_try = ['gemini-3.6-flash', 'gemini-1.5-pro', 'gemini-pro']
+                # အမှန်ကန်ဆုံး Google Gemini Model နာမည်များ
+                models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro']
                 success_flag = False
+                last_error_message = ""
+
+                # Movie Recap များအတွက် Safety Filter (လုံခြုံရေး ပိတ်ပင်မှု) အားလုံးကို ဖြုတ်ချခြင်း
+                safety_settings = [
+                    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+                ]
 
                 for m_name in models_to_try:
                     try:
                         gemini_model = genai.GenerativeModel(m_name)
-                        response = gemini_model.generate_content(prompt)
+                        response = gemini_model.generate_content(prompt, safety_settings=safety_settings)
                         response_text = response.text.strip()
                         st.success(f"💡 အောင်မြင်စွာ အသုံးပြုနိုင်သော Model: {m_name}")
                         success_flag = True
                         break
                     except Exception as e:
-                        if "429" in str(e) or "quota" in str(e).lower() or "404" in str(e):
-                            continue
-                        else:
-                            st.warning(f"Model {m_name} တွင် အခက်အခဲရှိနေပါသည်: {e}")
-                            continue
+                        last_error_message = str(e)
+                        continue
 
                 if success_flag and response_text:
                     pattern = r"\[(\d+)\]\s*(.*)"
@@ -129,7 +136,8 @@ if uploaded_file is not None:
                         translated_text = match[1].strip()
                         translated_dict[idx] = translated_text
                 else:
-                    st.error("ရနိုင်သော AI Model အားလုံး Quota ပြည့်သွားပါပြီ သို့မဟုတ် အချိတ်အဆက် မအောင်မြင်ပါ။ ကျေးဇူးပြု၍ API Key အသစ် လဲလှယ်အသုံးပြုပါ။")
+                    # Error အစစ်အမှန်ကို ဖော်ပြပေးမည်
+                    st.error(f"API ချိတ်ဆက်မှု မအောင်မြင်ပါ။\nအသေးစိတ် Error: {last_error_message}")
 
                 st.text("၄။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
