@@ -6,18 +6,45 @@ from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 import moviepy.video.fx.all as vfx
 import os
 import tempfile
+import time
 
-st.title("🎬 AI Video Dubbing (Pro Version)")
-st.write("ရုပ်နှင့်အသံ တစ်ထပ်တည်းကျစေရန် ဗီဒီယိုအား အလိုအလျောက် အနှေး/အမြန် ချိန်ညှိပေးသည့်စနစ် (Gemini 3.6 Flash)")
+st.title("🎬 AI Video Dubbing (Pro Version - Custom Voice)")
+st.write("AI အသံကို ၃၀% ပိုမြန်စေပြီး ရုပ်နှင့်အသံ အလိုအလျောက် ချိန်ညှိပေးသည့်စနစ်")
 
-# မြန်မာအသံချောမွေ့စေရန် သင်္ကေတများ ရှင်းလင်းသည့်လုပ်ဆောင်ချက်
-def clean_text(text):
-    chars_to_remove = ['.', ',', '"', "'", '?', '!', ':', ';', '(', ')', '[', ']', '{', '}', '-', '_', '။', '၊', '...']
+# ကိုရဲလင်းနိုင်၏ စည်းကမ်းချက်များအတိုင်း စာသားကို သန့်စင်ပေးမည့်စနစ်
+def clean_and_format_for_tts(text):
+    # သင်္ကေတများ ဖယ်ရှားခြင်း
+    chars_to_remove = ['.', ',', '"', "'", '?', '!', ':', ';', '(', ')', '[', ']', '{', '}', '-', '_', '...']
     for c in chars_to_remove:
         text = text.replace(c, ' ')
+        
+    # သတ်မှတ်ထားသော စာလုံးပေါင်းများ အလိုအလျောက် ပြင်ဆင်ခြင်း
+    replacements = {
+        "ယောက်ျား": "ယောက်ကျား",
+        "သူဌေး": "သဌေး",
+        "ကုတင်": "ကတင်",
+        "မြွေ": "မွေ",
+        "ခင်ပွန်းသည်": "ခင်ပွန်းသယ်",
+        "ဇနီးသည်": "ဇနီးသယ်",
+        "ဧည့်သည်": "ဧည့်သယ်",
+        "ဂိုဏ်း": "ဂိုင်း",
+        "ကောင်မလေး": "ကောင်မ လေး",
+        "အံ့ဩ": "အံ့အော",
+        "ပါးစပ်": "ပစပ်",
+        "ဓားပြ": "ဒမြ",
+        "ဧကရာဇ်": "အေကရစ်",
+        "ယဇ်ပလ္လင်": "ရစ်ပလင်",
+        "ယဇ်ကောင်": "ရစ်ကောင်",
+        "သူတောင်းစား": "သတောင်းစား",
+        "CEO": "စီးအီးအို",
+        "လောလီပေါ့": "သကြားလုံး",
+        "၁": "တစ်", "၂": "နှစ်", "၃": "သုံး", "၄": "လေး", "၅": "ငါး", "၆": "ခြောက်", "၇": "ခုနစ်", "၈": "ရှစ်", "၉": "ကိုး", "၀": "သုည"
+    }
+    for old_word, new_word in replacements.items():
+        text = text.replace(old_word, new_word)
+        
     return text.strip()
 
-# Gemini API Key ချိတ်ဆက်ခြင်း
 try:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 except:
@@ -27,7 +54,7 @@ uploaded_file = st.file_uploader("သင့်၏ ဗီဒီယိုဖို
 
 if uploaded_file is not None:
     if st.button("🚀 စတင် ဘာသာပြန်မည်"):
-        st.info("လုပ်ဆောင်နေပါသည်... ရုပ်နှင့်အသံ အတိအကျ ချိန်ညှိနေသဖြင့် အချိန်ပိုကြာနိုင်ပါသည်။ ခေတ္တစောင့်ဆိုင်းပေးပါ။")
+        st.info("လုပ်ဆောင်နေပါသည်... စနစ်အား အနားပေး၍ လုပ်ဆောင်နေသဖြင့် အချိန်ပိုကြာနိုင်ပါသည်။")
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
             temp_video.write(uploaded_file.read())
@@ -47,7 +74,7 @@ if uploaded_file is not None:
             if not segments:
                 st.warning("ဗီဒီယိုထဲမှ စကားပြောသံကို မဖမ်းမိပါ။")
             else:
-                st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည် (ဤအဆင့် အချိန်အနည်းငယ် ကြာပါမည်)...")
+                st.text("၃။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 gemini_model = genai.GenerativeModel('gemini-3.6-flash')
                 
                 final_clips = []
@@ -60,7 +87,6 @@ if uploaded_file is not None:
                     end_time = segment["end"]
                     original_text = segment["text"].strip()
                     
-                    # (က) စကားမပြောဘဲ တိတ်ဆိတ်နေသည့် ကြားကာလ (Gap) များကို မူလအတိုင်း ထည့်သွင်းခြင်း
                     if start_time > last_end:
                         gap_duration = start_time - last_end
                         if gap_duration > 0 and last_end < video.duration:
@@ -68,7 +94,6 @@ if uploaded_file is not None:
                             gap_clip = video.subclip(last_end, safe_start)
                             final_clips.append(gap_clip)
 
-                    # (ခ) စကားပြောသည့် အပိုင်းကို ဖြတ်ထုတ်ခြင်း
                     if start_time >= video.duration:
                         break
                     safe_end = min(end_time, video.duration)
@@ -76,42 +101,56 @@ if uploaded_file is not None:
 
                     try:
                         if original_text:
-                            # ၁။ ဘာသာပြန်ခြင်း
-                            prompt = f"Translate the following Chinese text to Myanmar (Burmese) language naturally. Only output the direct translation:\n\n{original_text}"
+                            # ကိုရဲလင်းနိုင်၏ အမိုက်စား Prompt အသစ်
+                            prompt = f"""အောက်ပါ တရုတ်စာသားကို မြန်မာလို ဘာသာပြန်ပေးပါ။ အောက်ပါ စည်းကမ်းချက်များကို တိတိကျကျ လိုက်နာပါ -
+၁။ ဇာတ်ကောင်နာမည်တွေ လုံးဝ မထည့်ရ (နိုင်ငံခြားနာမည်တွေအစား ကောင်လေး၊ ကောင်မလေး၊ သူဌေး၊ အမေ စသဖြင့် နာမ်စားများသာ သုံးပါ)။
+၂။ ပုံအညွှန်း (Image descriptions) များ လုံးဝ မထည့်ရ။
+၃။ ဇာတ်လမ်းပြောပြသည့်ပုံစံ ဖြင့် ရိုးရှင်း၊ ချောမွေ့ပြီး နားထောင်လို့ကောင်းအောင် ပုံပြင်ပြောပြတဲ့ ပုံမျိုး ရေးပေးပါ။
+၄။ မူရင်းဇာတ်လမ်းပါ အကြောင်းအရာ အချက်အလက်များကို တစ်ခုမှ မကျန်စေဘဲ အသေးစိတ် အပြည့်အစုံ ပြန်ဆိုပေးပါ။
+၅။ အင်္ဂလိပ်စာလုံး လုံးဝ မရောဘဲ မြန်မာဘာသာ သီးသန့်ဖြင့်သာ ရေးပေးပါ။
+
+ဘာသာပြန်ရမည့် တရုတ်စာသား - {original_text}"""
+                            
                             response = gemini_model.generate_content(prompt)
                             myanmar_text = response.text.strip()
                             
-                            # ၂။ စာသားသန့်စင်ခြင်း (Text Cleaning)
-                            cleaned_myanmar_text = clean_text(myanmar_text)
+                            # စာသားသန့်စင်ခြင်း
+                            cleaned_myanmar_text = clean_and_format_for_tts(myanmar_text)
                             
-                            # ၃။ မြန်မာအသံ ဖန်တီးခြင်း
+                            # မြန်မာအသံ ဖန်တီးခြင်း
                             temp_seg_audio = f"temp_audio_{i}.mp3"
                             tts = gTTS(text=cleaned_myanmar_text, lang='my', slow=False)
                             tts.save(temp_seg_audio)
-                            audio_clip = AudioFileClip(temp_seg_audio)
                             
-                            # ၄။ ရုပ်နှင့်အသံ အံဝင်ခွင်ကျဖြစ်စေရန် ဗီဒီယိုကို အမြန်/အနှေး ချိန်ညှိခြင်း (Time-Stretching)
-                            target_duration = audio_clip.duration
+                            # အသံကို ၃၀% မြန်စေရန် Speed Up (1.3x) လုပ်ခြင်း
+                            raw_audio_clip = AudioFileClip(temp_seg_audio)
+                            fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.3)
+                            
+                            target_duration = fast_audio_clip.duration
                             current_duration = speech_clip.duration
                             
                             if current_duration > 0 and target_duration > 0:
                                 speed_factor = current_duration / target_duration
                                 adjusted_clip = speech_clip.fx(vfx.speedx, factor=speed_factor)
-                                adjusted_clip = adjusted_clip.set_audio(audio_clip)
+                                adjusted_clip = adjusted_clip.set_audio(fast_audio_clip)
                                 final_clips.append(adjusted_clip)
                             else:
                                 final_clips.append(speech_clip)
+                                
+                            # API limit မကျော်စေရန် ၂ စက္ကန့် အနားပေးခြင်း
+                            time.sleep(2) 
+                            
                         else:
                             final_clips.append(speech_clip)
                             
                     except Exception as e:
-                        # Error တက်လျှင် မူလဗီဒီယိုအပိုင်းကိုသာ ပြန်ထည့်မည်
+                        st.warning(f"အပိုင်းအမှတ် {i+1} တွင် အခက်အခဲရှိနေပါသည်: {e}") 
                         final_clips.append(speech_clip)
+                        time.sleep(2)
                     
                     last_end = safe_end
                     progress_bar.progress((i + 1) / total_segments)
 
-                # (ဂ) နောက်ဆုံးကျန်နေသည့် ဗီဒီယိုအစွန်းအစများကို ပြန်ပေါင်းထည့်ခြင်း
                 if last_end < video.duration:
                     final_clips.append(video.subclip(last_end, video.duration))
 
@@ -122,7 +161,7 @@ if uploaded_file is not None:
                     final_video = concatenate_videoclips(final_clips)
                     final_video.write_videofile(output_video_path, codec="libx264", audio_codec="aac", temp_audiofile="temp-final-audio.m4a", remove_temp=True, logger=None)
 
-                    st.success("🎉 အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ! အောက်ပါခလုတ်ကို နှိပ်၍ ရယူပါ။")
+                    st.success("🎉 အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ!")
 
                     with open(output_video_path, "rb") as file:
                         st.download_button(
@@ -136,3 +175,4 @@ if uploaded_file is not None:
 
         except Exception as e:
             st.error(f"အဆင်မပြေမှု တစ်ခုခုဖြစ်သွားပါသည် - {e}")
+
