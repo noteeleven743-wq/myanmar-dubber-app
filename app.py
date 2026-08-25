@@ -1,13 +1,19 @@
 import streamlit as st
 import whisper
-from deep_translator import GoogleTranslator
+import google.generativeai as genai
 from gtts import gTTS
 from moviepy.editor import VideoFileClip, AudioFileClip
 import os
 import tempfile
 
 st.title("🎬 AI Video Dubbing (Chinese to Myanmar)")
-st.write("တရုတ်ဗီဒီယိုများကို မြန်မာလို အလိုအလျောက် အသံထည့်ပေးမည့် App")
+st.write("တရုတ်ဗီဒီယိုများကို မြန်မာလို အလိုအလျောက် အသံထည့်ပေးမည့် App (Gemini AI အသုံးပြုထားပါသည်)")
+
+# Gemini API Key ချိတ်ဆက်ခြင်း
+try:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+except:
+    st.error("Gemini API Key ကို Streamlit Secrets တွင် မထည့်ရသေးပါ။")
 
 uploaded_file = st.file_uploader("သင့်၏ ဗီဒီယိုဖိုင် (.mp4) ကို ဤနေရာတွင် ရွေးချယ်တင်ပါ", type=["mp4"])
 
@@ -36,11 +42,16 @@ if uploaded_file is not None:
             if original_text.strip() == "":
                 st.warning("ဗီဒီယိုထဲမှ စကားပြောသံကို မဖမ်းမိပါ။ ဗီဒီယိုအသံ တိုးနေခြင်း ဖြစ်နိုင်ပါသည်။")
             else:
-                # ၃။ မြန်မာလို ဘာသာပြန်ခြင်း
-                st.text("၃။ မြန်မာဘာသာသို့ ပြန်ဆိုနေပါသည်...")
-                translator = GoogleTranslator(source='auto', target='my')
-                myanmar_text = translator.translate(original_text)
-                st.success(f"မြန်မာလို ဘာသာပြန်ဆိုမှု - {myanmar_text}")
+                # ၃။ မြန်မာလို ဘာသာပြန်ခြင်း (Gemini AI)
+                st.text("၃။ မြန်မာဘာသာသို့ ပြန်ဆိုနေပါသည် (Gemini AI ဖြင့်)...")
+                
+                # Gemini ကို ဘာသာပြန်ခိုင်းခြင်း
+                gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+                prompt = f"Translate the following Chinese text to Myanmar (Burmese) language naturally. Do not output any other text, just the direct translation:\n\n{original_text}"
+                response = gemini_model.generate_content(prompt)
+                myanmar_text = response.text.strip()
+                
+                st.success(f"Gemini ၏ ဘာသာပြန်ဆိုမှု - {myanmar_text}")
                 
                 # ၄။ မြန်မာအသံ ဖန်တီးခြင်း
                 st.text("၄။ မြန်မာအသံအဖြစ်သို့ ပြောင်းလဲနေပါသည်...")
@@ -48,7 +59,7 @@ if uploaded_file is not None:
                 tts = gTTS(text=myanmar_text, lang='my', slow=False)
                 tts.save(myanmar_audio_path)
 
-                # အသံဖိုင် သီးသန့်ထုတ်ပြခြင်း (စမ်းသပ်ရန်)
+                # အသံဖိုင် သီးသန့်ထုတ်ပြခြင်း
                 st.audio(myanmar_audio_path, format="audio/mp3")
 
                 # ၅။ ဗီဒီယိုနှင့် အသံပေါင်းခြင်း
@@ -56,8 +67,6 @@ if uploaded_file is not None:
                 output_video_path = "Myanmar_Dubbed_Video.mp4"
                 new_audio = AudioFileClip(myanmar_audio_path)
                 final_video = video.set_audio(new_audio)
-                
-                # အသံသေချာ ဝင်စေရန် codec ကို ပြင်ဆင်ထားသည်
                 final_video.write_videofile(output_video_path, codec="libx264", audio_codec="aac", temp_audiofile="temp-audio.m4a", remove_temp=True, logger=None)
 
                 st.success("🎉 အောင်မြင်စွာ ပြောင်းလဲပြီးပါပြီ! အောက်ပါခလုတ်ကို နှိပ်၍ ရယူပါ။")
