@@ -78,7 +78,6 @@ if uploaded_file is not None:
             else:
                 st.text("၃။ စာသားများအားလုံးကို စုပေါင်း၍ တစ်ကြိမ်တည်း ဘာသာပြန်နေပါသည် (High Speed Mode)...")
 
-                # စာကြောင်းများကို [0] စာသား, [1] စာသား ပုံစံဖြင့် စုစည်းခြင်း
                 batch_texts = []
                 for i, segment in enumerate(segments):
                     text = segment["text"].strip()
@@ -104,7 +103,6 @@ if uploaded_file is not None:
                 translated_dict = {}
                 response_text = ""
                 
-                # Model Fallback စနစ် (gemini-3.6-flash က Quota ပြည့်ရင် gemini-1.5-pro သို့ gemini-pro သို့ ပြောင်းသုံးမည်)
                 models_to_try = ['gemini-3.6-flash', 'gemini-1.5-pro', 'gemini-pro']
                 success_flag = False
 
@@ -117,7 +115,6 @@ if uploaded_file is not None:
                         success_flag = True
                         break
                     except Exception as e:
-                        # 429 သို့မဟုတ် Quota သို့မဟုတ် 404 Error တက်ပါက နောက် Model တစ်ခုသို့ ဆက်သွားမည်
                         if "429" in str(e) or "quota" in str(e).lower() or "404" in str(e):
                             continue
                         else:
@@ -132,7 +129,7 @@ if uploaded_file is not None:
                         translated_text = match[1].strip()
                         translated_dict[idx] = translated_text
                 else:
-                    st.error("ရနိုင်သော AI Model အားလုံး Quota ပြည့်သွားပါပြီ သို့မဟုတ် အချိတ်အဆက် မအောင်မြင်ပါ။ ကျေးဇူးပြု၍ ခဏစောင့်ပါ သို့မဟုတ် API Key အသစ် သုံးပါ။")
+                    st.error("ရနိုင်သော AI Model အားလုံး Quota ပြည့်သွားပါပြီ သို့မဟုတ် အချိတ်အဆက် မအောင်မြင်ပါ။ ကျေးဇူးပြု၍ API Key အသစ် လဲလှယ်အသုံးပြုပါ။")
 
                 st.text("၄။ မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
@@ -164,7 +161,6 @@ if uploaded_file is not None:
                         temp_seg_audio = f"temp_audio_{i}.mp3"
                         
                         try:
-                            # Microsoft Edge (Thiha) အသံကို အသုံးပြုခြင်း
                             subprocess.run(['edge-tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio])
                             
                             raw_audio_clip = AudioFileClip(temp_seg_audio)
