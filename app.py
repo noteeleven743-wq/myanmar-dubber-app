@@ -10,7 +10,6 @@ st.set_page_config(page_title="Auto AI Dubbing", page_icon="🤖")
 st.title("🤖 AI Auto Dubbing (Gemini + Fast)")
 st.write("Gemini AI ဖြင့် အလိုအလျောက် ဘာသာပြန်ပေးပါမည်။ ရုပ်ထွက်ပိုင်းများကို ဖြုတ်ထား၍ ပိုမိုမြန်ဆန်ပါသည်။")
 
-# API Key ထည့်ရန် နေရာ
 api_key = st.text_input("🔑 Google Gemini API Key ထည့်ပါ", type="password")
 video_file = st.file_uploader("🎬 ဗီဒီယို (MP4) တင်ပါ", type=['mp4'])
 
@@ -43,29 +42,24 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
             if s_t >= video.duration: break
             
             sp_clip = video.subclip(s_t, min(e_t, video.duration))
-            
             original_text = seg['text'].strip()
             txt = ''
             
             if original_text:
                 try:
-                    # Gemini သို့ ဘာသာပြန်ခိုင်းခြင်း
                     prompt = f"အောက်ပါ တရုတ်စာသားကို Movie Recap အတွက် မြန်မာလို သဘာဝကျကျ ဘာသာပြန်ပေးပါ။ စည်းကမ်းချက် - ဇာတ်ကောင်နာမည်တွေ လုံးဝ မထည့်ပါနဲ့။ နိုင်ငံခြားနာမည်တွေအစား 'ကောင်လေး'၊ 'ကောင်မလေး'၊ 'အမျိုးသား'၊ 'အမျိုးသမီး' စသည်ဖြင့်သာ သုံးပါ။ ဘာသာပြန်ထားသော မြန်မာစာသားသီးသန့်ကိုသာ ပြန်ထုတ်ပေးပါ။ စာသား: {original_text}"
                     response = model.generate_content(prompt)
                     txt = response.text.strip()
-                    time.sleep(2) # API Limit မဖြစ်စေရန် ခဏနားခြင်း
+                    time.sleep(4) # API Limit မဖြစ်စေရန် ၄ စက္ကန့်တိတိ စောင့်ပါမည်
                 except Exception as e:
-                    # Error တက်ခဲ့လျှင် တရုတ်စာများ မထည့်တော့ဘဲ အလွတ်သာ ထားမည်
                     txt = '' 
+                    st.toast(f"⚠️ Gemini API Error (အပိုင်း {i+1}): {e}") 
             
             if txt:
                 for c in ['.',',','?','!','\"','\'','-','...']: txt = txt.replace(c, ' ')
                 
                 try:
-                    # အသံ ၅၀% ချဲ့ထားပါသည်
                     subprocess.run([sys.executable, '-m', 'edge_tts', '--text', txt.strip(), '--voice', 'my-MM-ThihaNeural', '--volume=+50%', '--write-media', f'temp_{i}.mp3'], check=True)
-                    
-                    # အသံကို ၃၀% ပိုမြန်အောင် လုပ်ထားပါသည် (factor=1.3)
                     r_aud = AudioFileClip(f'temp_{i}.mp3').fx(vfx.speedx, factor=1.3)
                     
                     if sp_clip.duration > 0 and r_aud.duration > 0:
@@ -74,14 +68,17 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
                     else:
                         f_clips.append(sp_clip.set_audio(AudioClip(lambda t: [0,0], duration=sp_clip.duration)))
                 except Exception as e:
-                    # အသံဖန်တီးမှု Error တက်ခဲ့လျှင် အသံတိတ်အဖြစ်သာ ထည့်မည် (App ရပ်မသွားစေရန်)
                     f_clips.append(sp_clip.set_audio(AudioClip(lambda t: [0,0], duration=sp_clip.duration)))
+                    st.toast(f"⚠️ အသံဖန်တီးမှု Error (အပိုင်း {i+1}): {e}")
             else:
                 f_clips.append(sp_clip.set_audio(AudioClip(lambda t: [0,0], duration=sp_clip.duration)))
             
             last_e = min(e_t, video.duration)
             progress_bar.progress((i + 1) / len(segments))
-            progress_text.text(f"Gemini ဖြင့် ဘာသာပြန်နေပါသည်... အပိုင်း {i+1}/{len(segments)} ပြီးစီးပါပြီ")
+            
+            # ဘာသာပြန်လိုက်တဲ့ စာသားကို စခရင်ပေါ်မှာ အရှင်ပြပေးထားပါမည်
+            display_text = txt if txt else '⚠️ အသံတိတ် (ဘာသာပြန်မရပါ)'
+            progress_text.text(f"အပိုင်း {i+1}/{len(segments)} ပြီးစီးပါပြီ: {display_text}")
         
         if last_e < video.duration:
             f_clips.append(video.subclip(last_e, video.duration).set_audio(AudioClip(lambda t: [0,0], duration=video.duration-last_e)))
@@ -101,3 +98,4 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
             )
     else:
         st.warning("⚠️ ကျေးဇူးပြု၍ ဗီဒီယိုနှင့် API Key ကို ပြည့်စုံစွာ ထည့်ပါ။")
+
