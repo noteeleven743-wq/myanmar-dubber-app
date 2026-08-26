@@ -3,6 +3,7 @@ import whisper
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 import moviepy.video.fx.all as vfx
 import os
+import sys
 import tempfile
 import subprocess
 import re
@@ -11,7 +12,7 @@ st.set_page_config(layout="wide")
 st.title("🎬 AI Video Dubbing (Manual Translation Mode)")
 st.write("အရည်အသွေး အကောင်းဆုံး Movie Recap ဗီဒီယိုများ ဖန်တီးရန် ကိုယ်တိုင် ဘာသာပြန်စာသား ထည့်သွင်းနိုင်သော စနစ်")
 
-# Session State များ သတ်မှတ်ခြင်း (App Refresh ဖြစ်သွားလျှင် Data မပျောက်စေရန်)
+# Session State များ သတ်မှတ်ခြင်း
 if 'segments' not in st.session_state:
     st.session_state.segments = None
 if 'video_path' not in st.session_state:
@@ -39,9 +40,6 @@ def clean_and_format_for_tts(text):
 uploaded_file = st.file_uploader("သင့်၏ ဗီဒီယိုဖိုင် (.mp4) ကို ဤနေရာတွင် ရွေးချယ်တင်ပါ", type=["mp4"])
 
 if uploaded_file is not None:
-    # ---------------------------------------------------------
-    # အဆင့် (၁) - ဗီဒီယိုမှ စာသား ထုတ်ယူခြင်း
-    # ---------------------------------------------------------
     if st.button("၁။ ဗီဒီယိုမှ မူရင်းစာသားများကို ထုတ်ယူမည်"):
         st.info("ဗီဒီယိုထဲမှ အသံများကို စာသားအဖြစ် ပြောင်းလဲနေပါသည်... ခေတ္တစောင့်ပါ။")
         
@@ -57,7 +55,6 @@ if uploaded_file is not None:
         result = model.transcribe(temp_audio_path)
         st.session_state.segments = result["segments"]
 
-        # စာသားများကို [0], [1] ပုံစံဖြင့် စုစည်းခြင်း
         out_text = ""
         for i, segment in enumerate(st.session_state.segments):
             text = segment["text"].strip()
@@ -67,9 +64,6 @@ if uploaded_file is not None:
         st.session_state.original_text = out_text
         st.rerun()
 
-    # ---------------------------------------------------------
-    # အဆင့် (၂) - ကိုယ်တိုင် ဘာသာပြန်စာသားထည့်၍ ဗီဒီယို ဖန်တီးခြင်း
-    # ---------------------------------------------------------
     if st.session_state.segments is not None:
         st.success("မူရင်းစာသားများ ထုတ်ယူပြီးပါပြီ။ အောက်ပါ မူရင်းစာသားများကို Copy ကူး၍ ChatGPT တွင် ဘာသာပြန်ပါ။")
         
@@ -78,7 +72,7 @@ if uploaded_file is not None:
             st.text_area("မူရင်း တရုတ်စာသားများ (Copy ကူးယူပါ)", value=st.session_state.original_text, height=350)
         
         with col2:
-            translated_input = st.text_area("မြန်မာလို ဘာသာပြန်ထားသော စာသားများကို ဤနေရာတွင် Paste ချပါ (ပုံစံတူ [0], [1] ပါရမည်)", height=350)
+            translated_input = st.text_area("မြန်မာလို ဘာသာပြန်ထားသော စာသားများကို ဤနေရာတွင် Paste ချပါ", height=350)
 
         if st.button("၂။ အသံထည့်၍ ဗီဒီယို ဖန်တီးမည် (Microsoft Thiha Voice)"):
             if not translated_input.strip():
@@ -86,7 +80,6 @@ if uploaded_file is not None:
             else:
                 st.info("မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
                 
-                # ယူဆာထည့်လိုက်သော စာသားများကို ပြန်ခွဲထုတ်ခြင်း
                 translated_dict = {}
                 pattern = r"\[(\d+)\]\s*(.*)"
                 matches = re.findall(pattern, translated_input)
@@ -122,7 +115,11 @@ if uploaded_file is not None:
                         temp_seg_audio = f"temp_audio_{i}.mp3"
                         
                         try:
-                            subprocess.run(['edge-tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio])
+                            # 🚨 Streamlit တွင် သေချာပေါက် အလုပ်လုပ်စေမည့် Command အသစ် 🚨
+                            subprocess.run(
+                                [sys.executable, '-m', 'edge_tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio], 
+                                check=True, capture_output=True
+                            )
                             
                             raw_audio_clip = AudioFileClip(temp_seg_audio)
                             fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
@@ -133,11 +130,18 @@ if uploaded_file is not None:
                             if current_duration > 0 and target_duration > 0:
                                 speed_factor = current_duration / target_duration
                                 adjusted_clip = speech_clip.fx(vfx.speedx, factor=speed_factor)
+                                # မူရင်းတရုတ်အသံကိုဖျောက်ပြီး မြန်မာအသံအစားထိုးခြင်း
                                 adjusted_clip = adjusted_clip.set_audio(fast_audio_clip)
                                 final_clips.append(adjusted_clip)
                             else:
                                 final_clips.append(speech_clip)
-                        except Exception:
+                                
+                        except subprocess.CalledProcessError as e:
+                            # Error တက်ပါက မျက်နှာပြင်တွင် အသိပေးမည်
+                            st.warning(f"အပိုင်း [{i}] အသံဖန်တီးမှု မအောင်မြင်ပါ: {e.stderr.decode()}")
+                            final_clips.append(speech_clip)
+                        except Exception as e:
+                            st.warning(f"အပိုင်း [{i}] အသံဖန်တီးမှု မအောင်မြင်ပါ: {e}")
                             final_clips.append(speech_clip)
                     else:
                         final_clips.append(speech_clip)
