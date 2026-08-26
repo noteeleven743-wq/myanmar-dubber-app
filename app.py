@@ -1,7 +1,10 @@
 import streamlit as st
 import whisper
-from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, ColorClip, CompositeVideoClip, ImageClip
 import moviepy.video.fx.all as vfx
+from moviepy.audio.AudioClip import AudioClip
+from PIL import Image, ImageDraw, ImageFont
+import numpy as np
 import os
 import sys
 import tempfile
@@ -9,10 +12,9 @@ import subprocess
 import re
 
 st.set_page_config(layout="wide")
-st.title("🎬 AI Video Dubbing (Manual Translation Mode)")
-st.write("အရည်အသွေး အကောင်းဆုံး Movie Recap ဗီဒီယိုများ ဖန်တီးရန် ကိုယ်တိုင် ဘာသာပြန်စာသား ထည့်သွင်းနိုင်သော စနစ်")
+st.title("🎬 AI Video Dubbing (All-In-One Ultimate Mode)")
+st.write("မူပိုင်ခွင့်ကင်းရှင်းစေမည့် Effects များနှင့် မြန်မာစာတန်းထိုး (Burn-in Subtitles) အားလုံး တစ်နေရာတည်းတွင် ပါဝင်သောစနစ်")
 
-# Session State များ သတ်မှတ်ခြင်း
 if 'segments' not in st.session_state:
     st.session_state.segments = None
 if 'video_path' not in st.session_state:
@@ -37,10 +39,44 @@ def clean_and_format_for_tts(text):
         text = text.replace(old_word, new_word)
     return text.strip()
 
-uploaded_file = st.file_uploader("သင့်၏ ဗီဒီယိုဖိုင် (.mp4) ကို ဤနေရာတွင် ရွေးချယ်တင်ပါ", type=["mp4"])
+def make_frame_mute(t):
+    return [0, 0]
+
+def create_subtitle_clip(text, video_w, video_h, duration, font_path):
+    sub_h = int(video_h * 0.2)
+    img = Image.new('RGBA', (video_w, sub_h), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+
+    try:
+        font_size = int(video_h * 0.045) 
+        font = ImageFont.truetype(font_path, font_size)
+    except:
+        font = ImageFont.load_default()
+
+    try:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_w = bbox[2] - bbox[0]
+        text_h = bbox[3] - bbox[1]
+    except AttributeError:
+        text_w, text_h = draw.textsize(text, font=font)
+
+    x = (video_w - text_w) / 2
+    y = (sub_h - text_h) / 2
+
+    stroke_width = max(1, int(font_size * 0.05))
+    draw.text((x, y), text, font=font, fill="white", stroke_width=stroke_width, stroke_fill="black")
+
+    clip = ImageClip(np.array(img)).set_duration(duration)
+    return clip
+
+col_v, col_f = st.columns(2)
+with col_v:
+    uploaded_file = st.file_uploader("၁။ သင့်၏ ဗီဒီယိုဖိုင် (.mp4) ကို တင်ပါ", type=["mp4"])
+with col_f:
+    font_file = st.file_uploader("၂။ မြန်မာဖောင့်ဖိုင် (.ttf) ကို တင်ပါ (စာတန်းထိုးရန်)", type=["ttf"])
 
 if uploaded_file is not None:
-    if st.button("၁။ ဗီဒီယိုမှ မူရင်းစာသားများကို ထုတ်ယူမည်"):
+    if st.button("၃။ ဗီဒီယိုမှ မူရင်းစာသားများကို ထုတ်ယူမည်"):
         st.info("ဗီဒီယိုထဲမှ အသံများကို စာသားအဖြစ် ပြောင်းလဲနေပါသည်... ခေတ္တစောင့်ပါ။")
         
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as temp_video:
@@ -65,21 +101,40 @@ if uploaded_file is not None:
         st.rerun()
 
     if st.session_state.segments is not None:
-        st.success("မူရင်းစာသားများ ထုတ်ယူပြီးပါပြီ။ အောက်ပါ မူရင်းစာသားများကို Copy ကူး၍ ChatGPT တွင် ဘာသာပြန်ပါ။")
+        st.success("မူရင်းစာသားများ ထုတ်ယူပြီးပါပြီ။")
         
         col1, col2 = st.columns(2)
         with col1:
-            st.text_area("မူရင်း တရုတ်စာသားများ (Copy ကူးယူပါ)", value=st.session_state.original_text, height=350)
+            st.text_area("မူရင်း တရုတ်စာသားများ", value=st.session_state.original_text, height=250)
         
         with col2:
-            translated_input = st.text_area("မြန်မာလို ဘာသာပြန်ထားသော စာသားများကို ဤနေရာတွင် Paste ချပါ", height=350)
+            translated_input = st.text_area("မြန်မာလို ဘာသာပြန်ထားသော စာသားများကို ဤနေရာတွင် Paste ချပါ", height=250)
 
-        if st.button("၂။ အသံထည့်၍ ဗီဒီယို ဖန်တီးမည် (Microsoft Thiha Voice)"):
+        st.write("---")
+        st.write("### 🛠️ ဗီဒီယို ပြုပြင်ရန် ရွေးချယ်မှုများ (All-In-One)")
+        col3, col4 = st.columns(2)
+        with col3:
+            apply_flip = st.checkbox("🪞 ဗီဒီယိုကို ဘယ်ညာ ပြောင်းပြန်လှန်မည် (Mirror Effect)", value=True)
+            apply_color = st.checkbox("🎨 ကာလာကို အနည်းငယ် ပြောင်းမည် (Color Tweak)", value=True)
+        with col4:
+            apply_blur_bar = st.checkbox("⬛ အောက်ခြေတွင် တရုတ်စာဖုံးရန် အလွှာပါးခံမည် (Dark Overlay)", value=True)
+            apply_burn_subtitles = st.checkbox("📝 ဗီဒီယိုပေါ်တွင် မြန်မာစာတန်း အသေထိုးမည် (Burn-in Subtitles)", value=True)
+
+        if st.button("၄။ အသံထည့်၍ ဗီဒီယို ဖန်တီးမည်"):
             if not translated_input.strip():
                 st.error("ကျေးဇူးပြု၍ ဘာသာပြန်စာသားများ အရင် ထည့်ပေးပါ။")
+            elif apply_burn_subtitles and font_file is None:
+                st.error("စာတန်းထိုးရန်အတွက် မြန်မာဖောင့်ဖိုင် (.ttf) ကို အပေါ်တွင် အရင်တင်ပေးပါ။")
             else:
-                st.info("မြန်မာအသံဖန်တီး၍ ဗီဒီယိုကို အချိန်ကိုက် ချိန်ညှိနေပါသည်...")
+                st.info("မြန်မာအသံ နှင့် စာတန်းထိုးများကို ဗီဒီယိုပေါ်သို့ ပေါင်းစပ်နေပါသည်...")
                 
+                # ဖောင့်ဖိုင်ကို ယာယီသိမ်းဆည်းခြင်း
+                current_font_path = "default"
+                if font_file is not None:
+                    with open("temp_font.ttf", "wb") as f:
+                        f.write(font_file.read())
+                    current_font_path = "temp_font.ttf"
+
                 translated_dict = {}
                 pattern = r"\[(\d+)\]\s*(.*)"
                 matches = re.findall(pattern, translated_input)
@@ -87,6 +142,16 @@ if uploaded_file is not None:
                     translated_dict[int(match[0])] = match[1].strip()
 
                 video = VideoFileClip(st.session_state.video_path)
+                
+                if apply_flip:
+                    video = video.fx(vfx.mirror_x)
+                if apply_color:
+                    video = video.fx(vfx.colorx, factor=1.05)
+                if apply_blur_bar:
+                    bar_height = int(video.h * 0.18)
+                    dark_clip = ColorClip(size=(video.w, bar_height), color=(0,0,0)).set_opacity(0.6).set_position(('center', 'bottom')).set_duration(video.duration)
+                    video = CompositeVideoClip([video, dark_clip])
+
                 final_clips = []
                 last_end = 0
                 progress_bar = st.progress(0)
@@ -101,6 +166,8 @@ if uploaded_file is not None:
                         if gap_duration > 0 and last_end < video.duration:
                             safe_start = min(start_time, video.duration)
                             gap_clip = video.subclip(last_end, safe_start)
+                            mute_audio = AudioClip(make_frame_mute, duration=gap_clip.duration)
+                            gap_clip = gap_clip.set_audio(mute_audio)
                             final_clips.append(gap_clip)
 
                     if start_time >= video.duration:
@@ -115,7 +182,6 @@ if uploaded_file is not None:
                         temp_seg_audio = f"temp_audio_{i}.mp3"
                         
                         try:
-                            # 🚨 Streamlit တွင် သေချာပေါက် အလုပ်လုပ်စေမည့် Command အသစ် 🚨
                             subprocess.run(
                                 [sys.executable, '-m', 'edge_tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio], 
                                 check=True, capture_output=True
@@ -130,42 +196,50 @@ if uploaded_file is not None:
                             if current_duration > 0 and target_duration > 0:
                                 speed_factor = current_duration / target_duration
                                 adjusted_clip = speech_clip.fx(vfx.speedx, factor=speed_factor)
-                                # မူရင်းတရုတ်အသံကိုဖျောက်ပြီး မြန်မာအသံအစားထိုးခြင်း
                                 adjusted_clip = adjusted_clip.set_audio(fast_audio_clip)
+                                
+                                if apply_burn_subtitles and current_font_path != "default":
+                                    sub_clip = create_subtitle_clip(myanmar_text, adjusted_clip.w, adjusted_clip.h, adjusted_clip.duration, current_font_path)
+                                    adjusted_clip = CompositeVideoClip([adjusted_clip, sub_clip.set_position(('center', 'bottom'))])
+                                
                                 final_clips.append(adjusted_clip)
                             else:
+                                mute_audio = AudioClip(make_frame_mute, duration=speech_clip.duration)
+                                speech_clip = speech_clip.set_audio(mute_audio)
                                 final_clips.append(speech_clip)
                                 
-                        except subprocess.CalledProcessError as e:
-                            # Error တက်ပါက မျက်နှာပြင်တွင် အသိပေးမည်
-                            st.warning(f"အပိုင်း [{i}] အသံဖန်တီးမှု မအောင်မြင်ပါ: {e.stderr.decode()}")
-                            final_clips.append(speech_clip)
-                        except Exception as e:
-                            st.warning(f"အပိုင်း [{i}] အသံဖန်တီးမှု မအောင်မြင်ပါ: {e}")
+                        except Exception:
+                            mute_audio = AudioClip(make_frame_mute, duration=speech_clip.duration)
+                            speech_clip = speech_clip.set_audio(mute_audio)
                             final_clips.append(speech_clip)
                     else:
+                        mute_audio = AudioClip(make_frame_mute, duration=speech_clip.duration)
+                        speech_clip = speech_clip.set_audio(mute_audio)
                         final_clips.append(speech_clip)
                     
                     last_end = safe_end
                     progress_bar.progress((i + 1) / total_segments)
 
                 if last_end < video.duration:
-                    final_clips.append(video.subclip(last_end, video.duration))
+                    end_clip = video.subclip(last_end, video.duration)
+                    mute_audio = AudioClip(make_frame_mute, duration=end_clip.duration)
+                    end_clip = end_clip.set_audio(mute_audio)
+                    final_clips.append(end_clip)
 
-                output_video_path = "Myanmar_Dubbed_Manual_Pro.mp4"
+                output_video_path = "Myanmar_Dubbed_All_In_One.mp4"
                 
                 if final_clips:
                     final_video = concatenate_videoclips(final_clips)
                     final_video.write_videofile(output_video_path, codec="libx264", audio_codec="aac", temp_audiofile="temp-final-audio.m4a", remove_temp=True, logger=None)
 
                     st.balloons()
-                    st.success("🎉 အကောင်းဆုံး အရည်အသွေးဖြင့် ပြောင်းလဲပြီးပါပြီ!")
+                    st.success("🎉 All-In-One ဗီဒီယိုကို အောင်မြင်စွာ ပြုပြင်ဖန်တီးပြီးပါပြီ!")
 
                     with open(output_video_path, "rb") as file:
                         st.download_button(
-                            label="📥 Pro ဗီဒီယိုကို ဒေါင်းလုဒ်ဆွဲရန် နှိပ်ပါ",
+                            label="📥 All-In-One ဗီဒီယိုကို ဒေါင်းလုဒ်ဆွဲရန်",
                             data=file,
-                            file_name="Myanmar_Dubbed_Manual_Pro.mp4",
+                            file_name="Myanmar_Dubbed_All_In_One.mp4",
                             mime="video/mp4"
                         )
                 else:
