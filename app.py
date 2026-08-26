@@ -12,8 +12,8 @@ import subprocess
 import re
 
 st.set_page_config(layout="wide")
-st.title("🎬 AI Video Dubbing (All-In-One Ultimate Mode)")
-st.write("မူပိုင်ခွင့်ကင်းရှင်းစေမည့် Effects များနှင့် မြန်မာစာတန်းထိုး (Burn-in Subtitles) အားလုံး တစ်နေရာတည်းတွင် ပါဝင်သောစနစ်")
+st.title("🎬 AI Video Dubbing (All-In-One High Quality)")
+st.write("မူပိုင်ခွင့်ကင်းရှင်းစေမည့် Effects များနှင့် မြန်မာစာတန်းထိုး (Burn-in Subtitles) စနစ် (မူရင်း ရုပ်ထွက်အတိုင်း)")
 
 if 'segments' not in st.session_state:
     st.session_state.segments = None
@@ -66,7 +66,14 @@ def create_subtitle_clip(text, video_w, video_h, duration, font_path):
     stroke_width = max(1, int(font_size * 0.05))
     draw.text((x, y), text, font=font, fill="white", stroke_width=stroke_width, stroke_fill="black")
 
-    clip = ImageClip(np.array(img)).set_duration(duration)
+    img_np = np.array(img)
+    rgb_np = img_np[:, :, :3]
+    alpha_np = img_np[:, :, 3] / 255.0
+    
+    clip = ImageClip(rgb_np).set_duration(duration)
+    mask = ImageClip(alpha_np, ismask=True).set_duration(duration)
+    clip = clip.set_mask(mask)
+    
     return clip
 
 col_v, col_f = st.columns(2)
@@ -86,6 +93,7 @@ if uploaded_file is not None:
         video = VideoFileClip(st.session_state.video_path)
         temp_audio_path = "temp_audio.wav"
         video.audio.write_audiofile(temp_audio_path, logger=None)
+        video.close() 
 
         model = whisper.load_model("base")
         result = model.transcribe(temp_audio_path)
@@ -114,11 +122,11 @@ if uploaded_file is not None:
         st.write("### 🛠️ ဗီဒီယို ပြုပြင်ရန် ရွေးချယ်မှုများ (All-In-One)")
         col3, col4 = st.columns(2)
         with col3:
-            apply_flip = st.checkbox("🪞 ဗီဒီယိုကို ဘယ်ညာ ပြောင်းပြန်လှန်မည် (Mirror Effect)", value=True)
-            apply_color = st.checkbox("🎨 ကာလာကို အနည်းငယ် ပြောင်းမည် (Color Tweak)", value=True)
+            apply_flip = st.checkbox("🪞 ဗီဒီယိုကို ဘယ်ညာ ပြောင်းပြန်လှန်မည်", value=True)
+            apply_color = st.checkbox("🎨 ကာလာကို အနည်းငယ် ပြောင်းမည်", value=False)
         with col4:
-            apply_blur_bar = st.checkbox("⬛ အောက်ခြေတွင် တရုတ်စာဖုံးရန် အလွှာပါးခံမည် (Dark Overlay)", value=True)
-            apply_burn_subtitles = st.checkbox("📝 ဗီဒီယိုပေါ်တွင် မြန်မာစာတန်း အသေထိုးမည် (Burn-in Subtitles)", value=True)
+            apply_blur_bar = st.checkbox("⬛ အောက်ခြေ တရုတ်စာဖုံး အလွှာပါးခံမည်", value=False)
+            apply_burn_subtitles = st.checkbox("📝 ဗီဒီယိုပေါ်တွင် မြန်မာစာတန်း အသေထိုးမည်", value=True)
 
         if st.button("၄။ အသံထည့်၍ ဗီဒီယို ဖန်တီးမည်"):
             if not translated_input.strip():
@@ -126,122 +134,137 @@ if uploaded_file is not None:
             elif apply_burn_subtitles and font_file is None:
                 st.error("စာတန်းထိုးရန်အတွက် မြန်မာဖောင့်ဖိုင် (.ttf) ကို အပေါ်တွင် အရင်တင်ပေးပါ။")
             else:
-                st.info("မြန်မာအသံ နှင့် စာတန်းထိုးများကို ဗီဒီယိုပေါ်သို့ ပေါင်းစပ်နေပါသည်...")
-                
-                # ဖောင့်ဖိုင်ကို ယာယီသိမ်းဆည်းခြင်း
-                current_font_path = "default"
-                if font_file is not None:
-                    with open("temp_font.ttf", "wb") as f:
-                        f.write(font_file.read())
-                    current_font_path = "temp_font.ttf"
-
-                translated_dict = {}
-                pattern = r"\[(\d+)\]\s*(.*)"
-                matches = re.findall(pattern, translated_input)
-                for match in matches:
-                    translated_dict[int(match[0])] = match[1].strip()
-
-                video = VideoFileClip(st.session_state.video_path)
-                
-                if apply_flip:
-                    video = video.fx(vfx.mirror_x)
-                if apply_color:
-                    video = video.fx(vfx.colorx, factor=1.05)
-                if apply_blur_bar:
-                    bar_height = int(video.h * 0.18)
-                    dark_clip = ColorClip(size=(video.w, bar_height), color=(0,0,0)).set_opacity(0.6).set_position(('center', 'bottom')).set_duration(video.duration)
-                    video = CompositeVideoClip([video, dark_clip])
-
-                final_clips = []
-                last_end = 0
-                progress_bar = st.progress(0)
-                total_segments = len(st.session_state.segments)
-
-                for i, segment in enumerate(st.session_state.segments):
-                    start_time = segment["start"]
-                    end_time = segment["end"]
+                try:
+                    st.info("မူရင်း ရုပ်ထွက် (High Quality) အတိုင်း ဗီဒီယိုကို ပေါင်းစပ်နေပါသည်... အချိန်အနည်းငယ် ကြာနိုင်ပါသည်။")
                     
-                    if start_time > last_end:
-                        gap_duration = start_time - last_end
-                        if gap_duration > 0 and last_end < video.duration:
-                            safe_start = min(start_time, video.duration)
-                            gap_clip = video.subclip(last_end, safe_start)
-                            mute_audio = AudioClip(make_frame_mute, duration=gap_clip.duration)
-                            gap_clip = gap_clip.set_audio(mute_audio)
-                            final_clips.append(gap_clip)
+                    current_font_path = "default"
+                    if font_file is not None:
+                        with open("temp_font.ttf", "wb") as f:
+                            f.write(font_file.getvalue()) 
+                        current_font_path = "temp_font.ttf"
 
-                    if start_time >= video.duration:
-                        break
-                    safe_end = min(end_time, video.duration)
-                    speech_clip = video.subclip(start_time, safe_end)
+                    translated_dict = {}
+                    pattern = r"\[(\d+)\]\s*(.*)"
+                    matches = re.findall(pattern, translated_input)
+                    for match in matches:
+                        translated_dict[int(match[0])] = match[1].strip()
 
-                    myanmar_text = translated_dict.get(i, "")
+                    video = VideoFileClip(st.session_state.video_path)
+                    
+                    # မှတ်ချက် - 720p သို့ အလိုအလျောက်ချုံ့သော Code အား ဖြုတ်ချထားပါသည်။
+                    
+                    if apply_flip:
+                        video = video.fx(vfx.mirror_x)
+                    if apply_color:
+                        video = video.fx(vfx.colorx, factor=1.05)
+                    if apply_blur_bar:
+                        bar_height = int(video.h * 0.18)
+                        dark_clip = ColorClip(size=(video.w, bar_height), color=(0,0,0)).set_opacity(0.6).set_position(('center', 'bottom')).set_duration(video.duration)
+                        video = CompositeVideoClip([video, dark_clip])
 
-                    if myanmar_text:
-                        cleaned_myanmar_text = clean_and_format_for_tts(myanmar_text)
-                        temp_seg_audio = f"temp_audio_{i}.mp3"
+                    final_clips = []
+                    last_end = 0
+                    progress_bar = st.progress(0)
+                    total_segments = len(st.session_state.segments)
+
+                    for i, segment in enumerate(st.session_state.segments):
+                        start_time = segment["start"]
+                        end_time = segment["end"]
                         
-                        try:
-                            subprocess.run(
-                                [sys.executable, '-m', 'edge_tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio], 
-                                check=True, capture_output=True
-                            )
+                        if start_time > last_end:
+                            gap_duration = start_time - last_end
+                            if gap_duration > 0 and last_end < video.duration:
+                                safe_start = min(start_time, video.duration)
+                                gap_clip = video.subclip(last_end, safe_start)
+                                mute_audio = AudioClip(make_frame_mute, duration=gap_clip.duration)
+                                gap_clip = gap_clip.set_audio(mute_audio)
+                                final_clips.append(gap_clip)
+
+                        if start_time >= video.duration:
+                            break
+                        safe_end = min(end_time, video.duration)
+                        speech_clip = video.subclip(start_time, safe_end)
+
+                        myanmar_text = translated_dict.get(i, "")
+
+                        if myanmar_text:
+                            cleaned_myanmar_text = clean_and_format_for_tts(myanmar_text)
+                            temp_seg_audio = f"temp_audio_{i}.mp3"
                             
-                            raw_audio_clip = AudioFileClip(temp_seg_audio)
-                            fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
-                            
-                            target_duration = fast_audio_clip.duration
-                            current_duration = speech_clip.duration
-                            
-                            if current_duration > 0 and target_duration > 0:
-                                speed_factor = current_duration / target_duration
-                                adjusted_clip = speech_clip.fx(vfx.speedx, factor=speed_factor)
-                                adjusted_clip = adjusted_clip.set_audio(fast_audio_clip)
+                            try:
+                                subprocess.run(
+                                    [sys.executable, '-m', 'edge_tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio], 
+                                    check=True, capture_output=True
+                                )
                                 
-                                if apply_burn_subtitles and current_font_path != "default":
-                                    sub_clip = create_subtitle_clip(myanmar_text, adjusted_clip.w, adjusted_clip.h, adjusted_clip.duration, current_font_path)
-                                    adjusted_clip = CompositeVideoClip([adjusted_clip, sub_clip.set_position(('center', 'bottom'))])
+                                raw_audio_clip = AudioFileClip(temp_seg_audio)
+                                fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
                                 
-                                final_clips.append(adjusted_clip)
-                            else:
+                                target_duration = fast_audio_clip.duration
+                                current_duration = speech_clip.duration
+                                
+                                if current_duration > 0 and target_duration > 0:
+                                    speed_factor = current_duration / target_duration
+                                    adjusted_clip = speech_clip.fx(vfx.speedx, factor=speed_factor)
+                                    adjusted_clip = adjusted_clip.set_audio(fast_audio_clip)
+                                    
+                                    if apply_burn_subtitles and current_font_path != "default":
+                                        sub_clip = create_subtitle_clip(myanmar_text, adjusted_clip.w, adjusted_clip.h, adjusted_clip.duration, current_font_path)
+                                        adjusted_clip = CompositeVideoClip([adjusted_clip, sub_clip.set_position(('center', 'bottom'))])
+                                    
+                                    final_clips.append(adjusted_clip)
+                                else:
+                                    mute_audio = AudioClip(make_frame_mute, duration=speech_clip.duration)
+                                    speech_clip = speech_clip.set_audio(mute_audio)
+                                    final_clips.append(speech_clip)
+                                    
+                            except Exception:
                                 mute_audio = AudioClip(make_frame_mute, duration=speech_clip.duration)
                                 speech_clip = speech_clip.set_audio(mute_audio)
                                 final_clips.append(speech_clip)
-                                
-                        except Exception:
+                        else:
                             mute_audio = AudioClip(make_frame_mute, duration=speech_clip.duration)
                             speech_clip = speech_clip.set_audio(mute_audio)
                             final_clips.append(speech_clip)
-                    else:
-                        mute_audio = AudioClip(make_frame_mute, duration=speech_clip.duration)
-                        speech_clip = speech_clip.set_audio(mute_audio)
-                        final_clips.append(speech_clip)
+                        
+                        last_end = safe_end
+                        progress_bar.progress((i + 1) / total_segments)
+
+                    if last_end < video.duration:
+                        end_clip = video.subclip(last_end, video.duration)
+                        mute_audio = AudioClip(make_frame_mute, duration=end_clip.duration)
+                        end_clip = end_clip.set_audio(mute_audio)
+                        final_clips.append(end_clip)
+
+                    output_video_path = "Myanmar_Dubbed_High_Quality.mp4"
                     
-                    last_end = safe_end
-                    progress_bar.progress((i + 1) / total_segments)
-
-                if last_end < video.duration:
-                    end_clip = video.subclip(last_end, video.duration)
-                    mute_audio = AudioClip(make_frame_mute, duration=end_clip.duration)
-                    end_clip = end_clip.set_audio(mute_audio)
-                    final_clips.append(end_clip)
-
-                output_video_path = "Myanmar_Dubbed_All_In_One.mp4"
-                
-                if final_clips:
-                    final_video = concatenate_videoclips(final_clips)
-                    final_video.write_videofile(output_video_path, codec="libx264", audio_codec="aac", temp_audiofile="temp-final-audio.m4a", remove_temp=True, logger=None)
-
-                    st.balloons()
-                    st.success("🎉 All-In-One ဗီဒီယိုကို အောင်မြင်စွာ ပြုပြင်ဖန်တီးပြီးပါပြီ!")
-
-                    with open(output_video_path, "rb") as file:
-                        st.download_button(
-                            label="📥 All-In-One ဗီဒီယိုကို ဒေါင်းလုဒ်ဆွဲရန်",
-                            data=file,
-                            file_name="Myanmar_Dubbed_All_In_One.mp4",
-                            mime="video/mp4"
+                    if final_clips:
+                        # RAM ချွေတာရန် threads 1 နှင့် preset ultrafast သုံးထားပါသည်
+                        final_video = concatenate_videoclips(final_clips, compose="reduce")
+                        final_video.write_videofile(
+                            output_video_path, 
+                            codec="libx264", 
+                            audio_codec="aac", 
+                            temp_audiofile="temp-final-audio.m4a", 
+                            remove_temp=True, 
+                            logger=None,
+                            threads=1, 
+                            preset="ultrafast" 
                         )
-                else:
-                    st.error("ဗီဒီယို ဖန်တီးမှု မအောင်မြင်ပါ။")
+
+                        st.balloons()
+                        st.success("🎉 မူရင်း High Quality ဗီဒီယိုကို အောင်မြင်စွာ ပြုပြင်ဖန်တီးပြီးပါပြီ!")
+
+                        with open(output_video_path, "rb") as file:
+                            st.download_button(
+                                label="📥 High Quality ဗီဒီယိုကို ဒေါင်းလုဒ်ဆွဲရန်",
+                                data=file,
+                                file_name="Myanmar_Dubbed_High_Quality.mp4",
+                                mime="video/mp4"
+                            )
+                    else:
+                        st.error("ဗီဒီယို ဖန်တီးမှု မအောင်မြင်ပါ။")
+                
+                except Exception as e:
+                    st.error(f"ဗီဒီယို ဖန်တီးနေစဉ် အမှားအယွင်းဖြစ်သွားပါသည်: {e}")
 
