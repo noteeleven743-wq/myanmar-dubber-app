@@ -151,8 +151,6 @@ if uploaded_file is not None:
 
                     video = VideoFileClip(st.session_state.video_path)
                     
-                    # မှတ်ချက် - 720p သို့ အလိုအလျောက်ချုံ့သော Code အား ဖြုတ်ချထားပါသည်။
-                    
                     if apply_flip:
                         video = video.fx(vfx.mirror_x)
                     if apply_color:
@@ -239,8 +237,8 @@ if uploaded_file is not None:
                     output_video_path = "Myanmar_Dubbed_High_Quality.mp4"
                     
                     if final_clips:
-                        # RAM ချွေတာရန် threads 1 နှင့် preset ultrafast သုံးထားပါသည်
-                        final_video = concatenate_videoclips(final_clips, compose="reduce")
+                        # 🚨 ပြုပြင်ထားသောအပိုင်း: Error မတက်စေရန် method="compose" သာ အသုံးပြုထားပါသည်
+                        final_video = concatenate_videoclips(final_clips, method="compose")
                         final_video.write_videofile(
                             output_video_path, 
                             codec="libx264", 
