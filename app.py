@@ -2,6 +2,7 @@ import streamlit as st
 import os, sys, subprocess, time
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 import moviepy.video.fx.all as vfx
+import moviepy.audio.fx.all as afx # 🔊 အသံကျယ်အောင် လုပ်ရန် အသစ်ထည့်ထားသည်
 from moviepy.audio.AudioClip import AudioClip
 import whisper
 import google.generativeai as genai
@@ -50,7 +51,7 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
                     prompt = f"အောက်ပါ တရုတ်စာသားကို Movie Recap အတွက် မြန်မာလို သဘာဝကျကျ ဘာသာပြန်ပေးပါ။ စည်းကမ်းချက် - ဇာတ်ကောင်နာမည်တွေ လုံးဝ မထည့်ပါနဲ့။ နိုင်ငံခြားနာမည်တွေအစား 'ကောင်လေး'၊ 'ကောင်မလေး'၊ 'အမျိုးသား'၊ 'အမျိုးသမီး' စသည်ဖြင့်သာ သုံးပါ။ ဘာသာပြန်ထားသော မြန်မာစာသားသီးသန့်ကိုသာ ပြန်ထုတ်ပေးပါ။ စာသား: {original_text}"
                     response = model.generate_content(prompt)
                     txt = response.text.strip()
-                    time.sleep(4) # API Limit မဖြစ်စေရန် ၄ စက္ကန့်တိတိ စောင့်ပါမည်
+                    time.sleep(4)
                 except Exception as e:
                     txt = '' 
                     st.toast(f"⚠️ Gemini API Error (အပိုင်း {i+1}): {e}") 
@@ -59,8 +60,11 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
                 for c in ['.',',','?','!','\"','\'','-','...']: txt = txt.replace(c, ' ')
                 
                 try:
-                    subprocess.run([sys.executable, '-m', 'edge_tts', '--text', txt.strip(), '--voice', 'my-MM-ThihaNeural', '--volume=+50%', '--write-media', f'temp_{i}.mp3'], check=True)
-                    r_aud = AudioFileClip(f'temp_{i}.mp3').fx(vfx.speedx, factor=1.3)
+                    # ⚠️ Volume ကို edge-tts မှ ဖြုတ်လိုက်ပါသည် (Linux ဆာဗာတွင် Error တက်သောကြောင့်ဖြစ်ပါသည်)
+                    subprocess.run([sys.executable, '-m', 'edge_tts', '--text', txt.strip(), '--voice', 'my-MM-ThihaNeural', '--write-media', f'temp_{i}.mp3'], check=True)
+                    
+                    # 🔊 အသံကို ၃၀% ပိုမြန်အောင်နှင့် ၅၀% ပိုကျယ်အောင် Moviepy ဖြင့် တိုက်ရိုက်လုပ်ပါမည်
+                    r_aud = AudioFileClip(f'temp_{i}.mp3').fx(vfx.speedx, factor=1.3).fx(afx.volumex, 1.5)
                     
                     if sp_clip.duration > 0 and r_aud.duration > 0:
                         adj_clip = sp_clip.fx(vfx.speedx, factor=sp_clip.duration / r_aud.duration).set_audio(r_aud)
@@ -76,7 +80,6 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
             last_e = min(e_t, video.duration)
             progress_bar.progress((i + 1) / len(segments))
             
-            # ဘာသာပြန်လိုက်တဲ့ စာသားကို စခရင်ပေါ်မှာ အရှင်ပြပေးထားပါမည်
             display_text = txt if txt else '⚠️ အသံတိတ် (ဘာသာပြန်မရပါ)'
             progress_text.text(f"အပိုင်း {i+1}/{len(segments)} ပြီးစီးပါပြီ: {display_text}")
         
@@ -98,4 +101,3 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
             )
     else:
         st.warning("⚠️ ကျေးဇူးပြု၍ ဗီဒီယိုနှင့် API Key ကို ပြည့်စုံစွာ ထည့်ပါ။")
-
