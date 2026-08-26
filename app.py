@@ -44,7 +44,6 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
             
             sp_clip = video.subclip(s_t, min(e_t, video.duration))
             
-            # မူရင်းစာသား
             original_text = seg['text'].strip()
             txt = ''
             
@@ -56,22 +55,26 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
                     txt = response.text.strip()
                     time.sleep(2) # API Limit မဖြစ်စေရန် ခဏနားခြင်း
                 except Exception as e:
-                    txt = original_text # ဘာသာပြန်မရပါက မူရင်းအတိုင်းထားမည်
+                    # Error တက်ခဲ့လျှင် တရုတ်စာများ မထည့်တော့ဘဲ အလွတ်သာ ထားမည်
+                    txt = '' 
             
             if txt:
                 for c in ['.',',','?','!','\"','\'','-','...']: txt = txt.replace(c, ' ')
                 
-                # အသံ ၅၀% ချဲ့ထားပါသည်
-                subprocess.run([sys.executable, '-m', 'edge_tts', '--text', txt.strip(), '--voice', 'my-MM-ThihaNeural', '--volume=+50%', '--write-media', f'temp_{i}.mp3'], check=True)
-                
-                # အသံကို ၃၀% ပိုမြန်အောင် လုပ်ထားပါသည် (factor=1.3)
-                r_aud = AudioFileClip(f'temp_{i}.mp3').fx(vfx.speedx, factor=1.3)
-                
-                if sp_clip.duration > 0 and r_aud.duration > 0:
-                    # ရုပ်ကို အသံအသစ်နှင့် ကိုက်ညီအောင် ချိန်ညှိခြင်း (Blur ဖြုတ်ထားသည်)
-                    adj_clip = sp_clip.fx(vfx.speedx, factor=sp_clip.duration / r_aud.duration).set_audio(r_aud)
-                    f_clips.append(adj_clip)
-                else:
+                try:
+                    # အသံ ၅၀% ချဲ့ထားပါသည်
+                    subprocess.run([sys.executable, '-m', 'edge_tts', '--text', txt.strip(), '--voice', 'my-MM-ThihaNeural', '--volume=+50%', '--write-media', f'temp_{i}.mp3'], check=True)
+                    
+                    # အသံကို ၃၀% ပိုမြန်အောင် လုပ်ထားပါသည် (factor=1.3)
+                    r_aud = AudioFileClip(f'temp_{i}.mp3').fx(vfx.speedx, factor=1.3)
+                    
+                    if sp_clip.duration > 0 and r_aud.duration > 0:
+                        adj_clip = sp_clip.fx(vfx.speedx, factor=sp_clip.duration / r_aud.duration).set_audio(r_aud)
+                        f_clips.append(adj_clip)
+                    else:
+                        f_clips.append(sp_clip.set_audio(AudioClip(lambda t: [0,0], duration=sp_clip.duration)))
+                except Exception as e:
+                    # အသံဖန်တီးမှု Error တက်ခဲ့လျှင် အသံတိတ်အဖြစ်သာ ထည့်မည် (App ရပ်မသွားစေရန်)
                     f_clips.append(sp_clip.set_audio(AudioClip(lambda t: [0,0], duration=sp_clip.duration)))
             else:
                 f_clips.append(sp_clip.set_audio(AudioClip(lambda t: [0,0], duration=sp_clip.duration)))
