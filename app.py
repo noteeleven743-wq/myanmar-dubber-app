@@ -2,7 +2,7 @@ import streamlit as st
 import os, sys, subprocess, time
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 import moviepy.video.fx.all as vfx
-import moviepy.audio.fx.all as afx # 🔊 အသံကျယ်အောင် လုပ်ရန် အသစ်ထည့်ထားသည်
+import moviepy.audio.fx.all as afx
 from moviepy.audio.AudioClip import AudioClip
 import whisper
 import google.generativeai as genai
@@ -18,7 +18,8 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
     if video_file and api_key:
         try:
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-1.5-flash')
+            # အစ်ကိုတောင်းဆိုထားတဲ့ Model အသစ်ကို ဒီနေရာမှာ ထည့်ထားပါတယ်
+            model = genai.GenerativeModel('gemini-3.6-flash')
         except Exception as e:
             st.error("API Key မှားယွင်းနေပါသည်။ ပြန်စစ်ဆေးပေးပါ။")
             st.stop()
@@ -60,10 +61,8 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
                 for c in ['.',',','?','!','\"','\'','-','...']: txt = txt.replace(c, ' ')
                 
                 try:
-                    # ⚠️ Volume ကို edge-tts မှ ဖြုတ်လိုက်ပါသည် (Linux ဆာဗာတွင် Error တက်သောကြောင့်ဖြစ်ပါသည်)
                     subprocess.run([sys.executable, '-m', 'edge_tts', '--text', txt.strip(), '--voice', 'my-MM-ThihaNeural', '--write-media', f'temp_{i}.mp3'], check=True)
                     
-                    # 🔊 အသံကို ၃၀% ပိုမြန်အောင်နှင့် ၅၀% ပိုကျယ်အောင် Moviepy ဖြင့် တိုက်ရိုက်လုပ်ပါမည်
                     r_aud = AudioFileClip(f'temp_{i}.mp3').fx(vfx.speedx, factor=1.3).fx(afx.volumex, 1.5)
                     
                     if sp_clip.duration > 0 and r_aud.duration > 0:
@@ -101,3 +100,4 @@ if st.button("🚀 အလိုအလျောက် ဗီဒီယို စ�
             )
     else:
         st.warning("⚠️ ကျေးဇူးပြု၍ ဗီဒီယိုနှင့် API Key ကို ပြည့်စုံစွာ ထည့်ပါ။")
+
