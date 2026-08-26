@@ -1,5 +1,5 @@
 streamlit
 openai-whisper
-deep-translator
+google-generativeai
 edge-tts
 moviepy==1.0.3
