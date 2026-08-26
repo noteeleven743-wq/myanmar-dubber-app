@@ -3,3 +3,4 @@ moviepy
 openai-whisper
 edge-tts
 google-generativeai
+.
