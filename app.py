@@ -2,6 +2,7 @@ import streamlit as st
 import whisper
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 import moviepy.video.fx.all as vfx
+import moviepy.audio.fx.all as afx # 🔊 အသံကျယ်အောင် လုပ်ရန် ဤနေရာတွင် ထပ်ထည့်ထားပါသည်
 import os
 import sys
 import tempfile
@@ -122,7 +123,9 @@ if uploaded_file is not None:
                             )
                             
                             raw_audio_clip = AudioFileClip(temp_seg_audio)
-                            fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.15)
+                            
+                            # 🔊 ဤနေရာတွင် အသံကို ၃၀% ပိုမြန်အောင် (1.3) နှင့် ၅၀% ပိုကျယ်အောင် (1.5) ပြင်ထားပါသည်
+                            fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.3).fx(afx.volumex, 1.5)
                             
                             target_duration = fast_audio_clip.duration
                             current_duration = speech_clip.duration
@@ -170,3 +173,4 @@ if uploaded_file is not None:
                         )
                 else:
                     st.error("ဗီဒီယို ဖန်တီးမှု မအောင်မြင်ပါ။")
+
