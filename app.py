@@ -2,18 +2,23 @@ import streamlit as st
 import whisper
 from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips
 import moviepy.video.fx.all as vfx
-import moviepy.audio.fx.all as afx # 🔊 အသံကျယ်အောင် လုပ်ရန် ဤနေရာတွင် ထပ်ထည့်ထားပါသည်
+import moviepy.audio.fx.all as afx
 import os
 import sys
 import tempfile
 import subprocess
 import re
+import gc # 🧹 RAM Memory ရှင်းလင်းရန်
 
 st.set_page_config(layout="wide")
 st.title("🎬 AI Video Dubbing (Manual Translation Mode)")
 st.write("အရည်အသွေး အကောင်းဆုံး Movie Recap ဗီဒီယိုများ ဖန်တီးရန် ကိုယ်တိုင် ဘာသာပြန်စာသား ထည့်သွင်းနိုင်သော စနစ်")
 
-# Session State များ သတ်မှတ်ခြင်း
+# Memory မပြည့်စေရန် Whisper Model ကို တစ်ခါတည်း Cache လုပ်ထားခြင်း
+@st.cache_resource
+def load_whisper_model():
+    return whisper.load_model("base")
+
 if 'segments' not in st.session_state:
     st.session_state.segments = None
 if 'video_path' not in st.session_state:
@@ -51,8 +56,9 @@ if uploaded_file is not None:
         video = VideoFileClip(st.session_state.video_path)
         temp_audio_path = "temp_audio.wav"
         video.audio.write_audiofile(temp_audio_path, logger=None)
+        video.close()
 
-        model = whisper.load_model("base")
+        model = load_whisper_model()
         result = model.transcribe(temp_audio_path)
         st.session_state.segments = result["segments"]
 
@@ -63,6 +69,12 @@ if uploaded_file is not None:
                 out_text += f"[{i}] {text}\n"
         
         st.session_state.original_text = out_text
+        
+        # 🧹 ဖိုင်ဟောင်းနှင့် Memory ရှင်းထုတ်ခြင်း
+        if os.path.exists(temp_audio_path):
+            os.remove(temp_audio_path)
+        gc.collect()
+        
         st.rerun()
 
     if st.session_state.segments is not None:
@@ -116,7 +128,6 @@ if uploaded_file is not None:
                         temp_seg_audio = f"temp_audio_{i}.mp3"
                         
                         try:
-                            # 🚨 Streamlit တွင် သေချာပေါက် အလုပ်လုပ်စေမည့် Command အသစ် 🚨
                             subprocess.run(
                                 [sys.executable, '-m', 'edge_tts', '--text', cleaned_myanmar_text, '--voice', 'my-MM-ThihaNeural', '--write-media', temp_seg_audio], 
                                 check=True, capture_output=True
@@ -124,7 +135,7 @@ if uploaded_file is not None:
                             
                             raw_audio_clip = AudioFileClip(temp_seg_audio)
                             
-                            # 🔊 ဤနေရာတွင် အသံကို ၃၀% ပိုမြန်အောင် (1.3) နှင့် ၅၀% ပိုကျယ်အောင် (1.5) ပြင်ထားပါသည်
+                            # 🔊 အသံ ၃၀% ပိုမြန် (1.3x) + ၅၀% ပိုကျယ် (1.5x)
                             fast_audio_clip = raw_audio_clip.fx(vfx.speedx, factor=1.3).fx(afx.volumex, 1.5)
                             
                             target_duration = fast_audio_clip.duration
@@ -133,16 +144,11 @@ if uploaded_file is not None:
                             if current_duration > 0 and target_duration > 0:
                                 speed_factor = current_duration / target_duration
                                 adjusted_clip = speech_clip.fx(vfx.speedx, factor=speed_factor)
-                                # မူရင်းတရုတ်အသံကိုဖျောက်ပြီး မြန်မာအသံအစားထိုးခြင်း
                                 adjusted_clip = adjusted_clip.set_audio(fast_audio_clip)
                                 final_clips.append(adjusted_clip)
                             else:
                                 final_clips.append(speech_clip)
                                 
-                        except subprocess.CalledProcessError as e:
-                            # Error တက်ပါက မျက်နှာပြင်တွင် အသိပေးမည်
-                            st.warning(f"အပိုင်း [{i}] အသံဖန်တီးမှု မအောင်မြင်ပါ: {e.stderr.decode()}")
-                            final_clips.append(speech_clip)
                         except Exception as e:
                             st.warning(f"အပိုင်း [{i}] အသံဖန်တီးမှု မအောင်မြင်ပါ: {e}")
                             final_clips.append(speech_clip)
@@ -160,6 +166,15 @@ if uploaded_file is not None:
                 if final_clips:
                     final_video = concatenate_videoclips(final_clips)
                     final_video.write_videofile(output_video_path, codec="libx264", audio_codec="aac", temp_audiofile="temp-final-audio.m4a", remove_temp=True, logger=None)
+
+                    # 🧹 အသုံးပြုပြီးသော Clip များနှင့် ဖိုင်များအားလုံး ပိတ်သိမ်း/ဖျက်ပစ်ခြင်း
+                    video.close()
+                    final_video.close()
+                    for f in os.listdir('.'):
+                        if f.startswith('temp_audio_') and f.endswith('.mp3'):
+                            try: os.remove(f)
+                            except: pass
+                    gc.collect() # RAM ရှင်းထုတ်ခြင်း
 
                     st.balloons()
                     st.success("🎉 အကောင်းဆုံး အရည်အသွေးဖြင့် ပြောင်းလဲပြီးပါပြီ!")
